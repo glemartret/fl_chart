@@ -93,7 +93,7 @@ class RenderGaugeChart extends RenderBaseChart<GaugeTouchResponse> {
   GaugeTouchResponse getResponseAtLocation(Offset localPosition) {
     return GaugeTouchResponse(
       touchLocation: localPosition,
-      touchedSpot: painter.handleTouch(
+      touchedSection: painter.handleTouch(
         localPosition,
         mockTestSize ?? size,
         paintHolder,

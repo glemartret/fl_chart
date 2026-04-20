@@ -9,7 +9,7 @@ class GaugeChartSample2 extends StatefulWidget {
   State<StatefulWidget> createState() => GaugeChartSample2State();
 }
 
-class GaugeChartSample2State extends State {
+class GaugeChartSample2State extends State<GaugeChartSample2> {
   double _value = 0.5;
 
   @override
@@ -22,27 +22,24 @@ class GaugeChartSample2State extends State {
             width: 250,
             height: 250,
             child: GaugeChart(
-              GaugeChartData(
+              GaugeChartData.progress(
                 value: _value,
-                valueColor:
-                    GaugeColor.simple(color: AppColors.contentColorYellow),
+                color: AppColors.contentColorYellow,
+                width: 30,
                 backgroundColor:
                     AppColors.contentColorPurple.withValues(alpha: 0.2),
-                strokeWidth: 30,
                 startDegreeOffset: -225,
                 sweepAngle: 270,
-                direction: GaugeDirection.clockwise,
-                strokeCap: StrokeCap.butt,
                 ticks: const GaugeTicks(
                   count: 11,
-                  color: AppColors.contentColorCyan,
-                  radius: 5,
                   position: GaugeTickPosition.inner,
                   margin: 5,
+                  painter: GaugeTickCirclePainter(
+                    radius: 5,
+                    color: AppColors.contentColorCyan,
+                  ),
                 ),
-                touchData: GaugeTouchData(
-                  enabled: true,
-                ),
+                touchData: GaugeTouchData(enabled: true),
               ),
             ),
           ),

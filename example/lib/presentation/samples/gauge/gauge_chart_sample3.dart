@@ -2,6 +2,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:fl_chart_app/presentation/resources/app_resources.dart';
 import 'package:flutter/material.dart';
 
+/// Multi-ring ("Apple Watch"-style) gauge. Three concentric progress
+/// rings, each tracking its own value against the same 0..1 scale.
+/// Sections are listed innermost-first; the slider drives the
+/// innermost ring, the outer two are fixed.
 class GaugeChartSample3 extends StatefulWidget {
   const GaugeChartSample3({super.key});
 
@@ -9,7 +13,7 @@ class GaugeChartSample3 extends StatefulWidget {
   State<StatefulWidget> createState() => GaugeChartSample3State();
 }
 
-class GaugeChartSample3State extends State {
+class GaugeChartSample3State extends State<GaugeChartSample3> {
   double _value = 0.6;
 
   @override
@@ -23,33 +27,32 @@ class GaugeChartSample3State extends State {
             height: 250,
             child: GaugeChart(
               GaugeChartData(
-                value: _value,
-                valueColor: GaugeColor(
-                  colors: [
-                    AppColors.contentColorGreen,
-                    AppColors.contentColorBlue,
-                    AppColors.contentColorRed
-                  ],
-                  limits: [0.5, 0.8],
-                ),
-                backgroundColor:
-                    AppColors.contentColorPurple.withValues(alpha: 0.2),
-                strokeWidth: 30,
                 startDegreeOffset: -225,
                 sweepAngle: 270,
-                direction: GaugeDirection.clockwise,
                 strokeCap: StrokeCap.round,
-                ticks: const GaugeTicks(
-                  count: 11,
-                  color: AppColors.contentColorCyan,
-                  radius: 5,
-                  position: GaugeTickPosition.inner,
-                  margin: 5,
-                  showChangingColorTicks: false,
-                ),
-                touchData: GaugeTouchData(
-                  enabled: true,
-                ),
+                defaultSectionWidth: 20,
+                sectionsSpace: 4,
+                sections: [
+                  GaugeProgressSection(
+                    value: _value,
+                    color: AppColors.contentColorRed,
+                    backgroundColor:
+                        AppColors.contentColorRed.withValues(alpha: 0.2),
+                  ),
+                  GaugeProgressSection(
+                    value: 0.45,
+                    color: AppColors.contentColorGreen,
+                    backgroundColor:
+                        AppColors.contentColorGreen.withValues(alpha: 0.2),
+                  ),
+                  GaugeProgressSection(
+                    value: 0.9,
+                    color: AppColors.contentColorBlue,
+                    backgroundColor:
+                        AppColors.contentColorBlue.withValues(alpha: 0.2),
+                  ),
+                ],
+                touchData: GaugeTouchData(enabled: true),
               ),
             ),
           ),

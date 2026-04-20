@@ -1,5 +1,4 @@
 import 'package:fl_chart/fl_chart.dart';
-import 'package:fl_chart_app/presentation/resources/app_resources.dart';
 import 'package:flutter/material.dart';
 
 class GaugeChartSample1 extends StatefulWidget {
@@ -9,7 +8,7 @@ class GaugeChartSample1 extends StatefulWidget {
   State<StatefulWidget> createState() => GaugeChartSample1State();
 }
 
-class GaugeChartSample1State extends State {
+class GaugeChartSample1State extends State<GaugeChartSample1> {
   double _value = 0.5;
 
   @override
@@ -23,19 +22,52 @@ class GaugeChartSample1State extends State {
             height: 250,
             child: GaugeChart(
               GaugeChartData(
-                value: _value,
-                valueColor:
-                    GaugeColor.simple(color: AppColors.contentColorYellow),
-                backgroundColor:
-                    AppColors.contentColorPurple.withValues(alpha: 0.2),
-                strokeWidth: 30,
+                sections: const [
+                  GaugeProgressSection(
+                    value: 0.3,
+                    backgroundColor: Colors.grey,
+                    color: Colors.red,
+                  ),
+                  GaugeProgressSection(
+                    value: 0.4,
+                    color: Colors.green,
+                    backgroundColor: Colors.grey,
+                  ),
+                  GaugeProgressSection(
+                    value: 0.5,
+                    color: Colors.blue,
+                    backgroundColor: Colors.grey,
+                  ),
+                  GaugeProgressSection(
+                    value: 0.6,
+                    color: Colors.cyan,
+                    backgroundColor: Colors.grey,
+                  ),
+                  GaugeProgressSection(
+                    value: 0.7,
+                    color: Colors.amber,
+                    backgroundColor: Colors.grey,
+                  ),
+                  GaugeProgressSection(
+                    value: 0.8,
+                    color: Colors.deepOrange,
+                    backgroundColor: Colors.grey,
+                  ),
+                  GaugeProgressSection(
+                    value: 0.9,
+                    color: Colors.purpleAccent,
+                    backgroundColor: Colors.grey,
+                  ),
+                  GaugeProgressSection(
+                    value: 1,
+                    color: Colors.purpleAccent,
+                    backgroundColor: Colors.teal,
+                  ),
+                ],
+                sectionsSpace: 8,
                 startDegreeOffset: -225,
                 sweepAngle: 270,
-                direction: GaugeDirection.clockwise,
-                strokeCap: StrokeCap.butt,
-                touchData: GaugeTouchData(
-                  enabled: true,
-                ),
+                touchData: GaugeTouchData(enabled: true),
               ),
             ),
           ),

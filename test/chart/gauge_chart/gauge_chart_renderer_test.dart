@@ -16,37 +16,41 @@ void main() {
   group('GaugeChartRenderer', () {
     GaugeChartData createData() {
       return GaugeChartData(
-        sweepAngle: 270,
-        strokeWidth: 5,
-        value: 0.7,
-        valueColor: GaugeColor.simple(color: MockData.color0),
-        backgroundColor: MockData.color6,
+        sections: const [
+          GaugeProgressSection(
+            value: 0.7,
+            color: MockData.color0,
+            width: 5,
+            backgroundColor: MockData.color6,
+          ),
+        ],
         strokeCap: StrokeCap.round,
         ticks: const GaugeTicks(
-          color: MockData.color0,
           margin: 5,
-          showChangingColorTicks: false,
-          radius: 4,
           count: 5,
           position: GaugeTickPosition.inner,
+          painter: GaugeTickCirclePainter(color: MockData.color0, radius: 4),
         ),
       );
     }
 
     GaugeChartData createTargetData() {
       return GaugeChartData(
+        sections: const [
+          GaugeProgressSection(
+            value: 0.5,
+            color: MockData.color1,
+            width: 5,
+            backgroundColor: MockData.color5,
+          ),
+        ],
         sweepAngle: 180,
-        strokeWidth: 5,
-        value: 0.5,
-        valueColor: GaugeColor.simple(color: MockData.color1),
-        backgroundColor: MockData.color5,
         strokeCap: StrokeCap.round,
         ticks: const GaugeTicks(
-          color: MockData.color1,
           margin: 10,
-          radius: 20,
           count: 30,
           position: GaugeTickPosition.center,
+          painter: GaugeTickCirclePainter(color: MockData.color1, radius: 20),
         ),
       );
     }
@@ -90,16 +94,16 @@ void main() {
     test('test 2 check paint function', () {
       final data = createData();
       final targetData = createTargetData();
-      final renderGaugeChart = RenderGaugeChart(
+      RenderGaugeChart(
         mockBuildContext,
         data,
         targetData,
         textScaler,
       )
         ..mockTestSize = mockSize
-        ..painter = mockPainter;
+        ..painter = mockPainter
+        ..paint(mockPaintingContext, const Offset(10, 10));
 
-      renderGaugeChart.paint(mockPaintingContext, const Offset(10, 10));
       verify(mockCanvas.save()).called(1);
       verify(mockCanvas.translate(10, 10)).called(1);
       final result = verify(mockPainter.paint(any, captureAny, captureAny));
@@ -137,11 +141,11 @@ void main() {
           'size': inv.positionalArguments[1] as Size,
           'paint_holder': inv.positionalArguments[2] as PaintHolder,
         });
-        return gaugeTouchedSpot1;
+        return gaugeTouchedSection1;
       });
       final touchResponse =
           renderGaugeChart.getResponseAtLocation(MockData.offset1);
-      expect(touchResponse.touchedSpot, gaugeTouchedSpot1);
+      expect(touchResponse.touchedSection, gaugeTouchedSection1);
       expect(results[0]['local_position'] as Offset, MockData.offset1);
       expect(results[0]['size'] as Size, mockSize);
       final paintHolder = results[0]['paint_holder'] as PaintHolder;
@@ -160,9 +164,7 @@ void main() {
         textScaler,
       )
         ..mockTestSize = mockSize
-        ..painter = mockPainter;
-
-      renderGaugeChart
+        ..painter = mockPainter
         ..data = targetData
         ..targetData = data
         ..textScaler = const TextScaler.linear(22);

@@ -1169,6 +1169,26 @@ class MockPaintingContext extends _i1.Mock implements _i3.PaintingContext {
       );
 
   @override
+  void clipRSuperellipseAndPaint(
+    _i2.RSuperellipse? rse,
+    _i2.Clip? clipBehavior,
+    _i2.Rect? bounds,
+    _i2.VoidCallback? painter,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #clipRSuperellipseAndPaint,
+          [
+            rse,
+            clipBehavior,
+            bounds,
+            painter,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   void clipRectAndPaint(
     _i2.Rect? rect,
     _i2.Clip? clipBehavior,
@@ -1393,6 +1413,26 @@ class MockBarChartPainter extends _i1.Mock implements _i10.BarChartPainter {
         Invocation.method(
           #drawBars,
           [
+            canvasWrapper,
+            groupBarsPosition,
+            holder,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void drawBarLabels(
+    _i6.BuildContext? context,
+    _i11.CanvasWrapper? canvasWrapper,
+    List<_i10.GroupBarsPosition>? groupBarsPosition,
+    _i12.PaintHolder<_i13.BarChartData>? holder,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #drawBarLabels,
+          [
+            context,
             canvasWrapper,
             groupBarsPosition,
             holder,

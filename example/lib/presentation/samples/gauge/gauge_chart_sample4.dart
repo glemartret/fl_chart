@@ -1,7 +1,14 @@
 import 'package:fl_chart/fl_chart.dart';
-import 'package:fl_chart_app/presentation/resources/app_resources.dart';
 import 'package:flutter/material.dart';
 
+/// Speedometer-style gauge combining two section types:
+/// - an inner [GaugeProgressSection] showing the current measurement
+///   (350..value filled green, rest greyed out)
+/// - an outer [GaugeZonesSection] painting fixed threshold bands
+///   (350-600 red, 600-700 amber, 700-800 light green, 800-850 green)
+///
+/// Touching the gauge reports which ring was hit and, for the zones
+/// ring, which specific zone the touch angle falls in.
 class GaugeChartSample4 extends StatefulWidget {
   const GaugeChartSample4({super.key});
 
@@ -9,9 +16,12 @@ class GaugeChartSample4 extends StatefulWidget {
   State<StatefulWidget> createState() => GaugeChartSample4State();
 }
 
-class GaugeChartSample4State extends State {
-  double _value = 0.7;
-  bool _isSelected = false;
+class GaugeChartSample4State extends State<GaugeChartSample4> {
+  double _value = 370;
+  String _touchLabel = 'Touch the gauge to read a value';
+
+  static const _minValue = 350.0;
+  static const _maxValue = 850.0;
 
   @override
   Widget build(BuildContext context) {
@@ -20,43 +30,77 @@ class GaugeChartSample4State extends State {
       child: Column(
         children: [
           SizedBox(
-            width: 250,
-            height: 250,
+            width: 280,
+            height: 180,
             child: GaugeChart(
               GaugeChartData(
-                value: _value,
-                valueColor: GaugeColor(
-                  colors: [
-                    AppColors.contentColorGreen,
-                    AppColors.contentColorBlue,
-                    AppColors.contentColorRed
-                  ],
-                  limits: [0.5, 0.8],
-                ),
-                backgroundColor: AppColors.contentColorPurple
-                    .withValues(alpha: _isSelected ? 0.2 : 1),
-                strokeWidth: 30,
-                startDegreeOffset: -225,
-                sweepAngle: 270,
-                direction: GaugeDirection.clockwise,
+                minValue: _minValue,
+                maxValue: _maxValue,
+                startDegreeOffset: 180,
+                sweepAngle: 180,
+                sectionsSpace: 4,
                 strokeCap: StrokeCap.round,
-                ticks: const GaugeTicks(
-                  count: 11,
-                  color: AppColors.contentColorCyan,
-                  radius: 5,
-                  position: GaugeTickPosition.inner,
-                  margin: 5,
-                ),
+                sections: [
+                  GaugeProgressSection(
+                    value: _value,
+                    color: Colors.green.shade300,
+                    backgroundColor: Colors.grey.shade300,
+                    width: 30,
+                  ),
+                  const GaugeZonesSection(
+                    width: 10,
+                    zones: [
+                      GaugeZone(from: 350, to: 600, color: Colors.redAccent),
+                      GaugeZone(from: 600, to: 700, color: Colors.amber),
+                      GaugeZone(from: 700, to: 800, color: Colors.lightGreen),
+                      GaugeZone(from: 800, to: 850, color: Colors.green),
+                    ],
+                  ),
+                ],
                 touchData: GaugeTouchData(
                   enabled: true,
                   touchCallback: (_, response) => setState(() {
-                    _isSelected = response?.touchedSpot != null;
+                    final s = response?.touchedSection;
+                    if (s == null || s.touchedSection == null) {
+                      _touchLabel = 'Outside the gauge';
+                      return;
+                    }
+                    final value = s.touchValue.toStringAsFixed(0);
+                    switch (s.touchedSection) {
+                      case GaugeProgressSection():
+                        _touchLabel =
+                            'Progress ring @ $value ${s.isOnValue ? '(filled)' : '(background)'}';
+                      case GaugeZonesSection():
+                        final zone = s.touchedZone;
+                        _touchLabel = zone == null
+                            ? 'Zones ring @ $value (gap)'
+                            : 'Zones ring @ $value — band ${zone.from.toStringAsFixed(0)}..${zone.to.toStringAsFixed(0)}';
+                      case null:
+                        _touchLabel = 'Outside the gauge';
+                    }
                   }),
                 ),
               ),
             ),
           ),
-          Slider(value: _value, onChanged: (v) => setState(() => _value = v)),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              _value.toStringAsFixed(0),
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+          ),
+          Slider(
+            value: _value,
+            min: _minValue,
+            max: _maxValue,
+            onChanged: (v) => setState(() => _value = v),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _touchLabel,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ],
       ),
     );

@@ -3,16 +3,13 @@ import 'package:fl_chart/src/chart/gauge_chart/gauge_chart_renderer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../data_pool.dart';
-
 void main() {
   group('GaugeChart widget', () {
     testWidgets('builds with initial data and renders leaf', (tester) async {
       final data = GaugeChartData(
-        value: 0.4,
-        strokeWidth: 8,
-        sweepAngle: 270,
-        valueColor: GaugeColor.simple(color: MockData.color0),
+        sections: const [
+          GaugeProgressSection(value: 0.4, color: Colors.red, width: 8),
+        ],
       );
 
       await tester.pumpWidget(
@@ -29,48 +26,49 @@ void main() {
       expect(find.byType(GaugeChartLeaf), findsOneWidget);
     });
 
-    testWidgets('updates tween when data changes (implicit animation)',
-        (tester) async {
-      final dataA = GaugeChartData(
-        value: 0.2,
-        strokeWidth: 6,
-        sweepAngle: 180,
-        valueColor: GaugeColor.simple(color: Colors.red),
-      );
+    testWidgets(
+      'updates tween when data changes (implicit animation)',
+      (tester) async {
+        final dataA = GaugeChartData(
+          sections: const [
+            GaugeProgressSection(value: 0.2, color: Colors.red, width: 6),
+          ],
+          sweepAngle: 180,
+        );
 
-      final dataB = GaugeChartData(
-        value: 0.8,
-        strokeWidth: 10,
-        startDegreeOffset: 30,
-        sweepAngle: 270,
-        valueColor: GaugeColor.simple(color: Colors.blue),
-      );
+        final dataB = GaugeChartData(
+          sections: const [
+            GaugeProgressSection(value: 0.8, color: Colors.blue, width: 10),
+          ],
+          startDegreeOffset: 30,
+        );
 
-      Widget build(GaugeChartData d) => Directionality(
-            textDirection: TextDirection.ltr,
-            child: MediaQuery(
-              data: const MediaQueryData(),
-              child: GaugeChart(
-                d,
-                // Short animation for test speed
-                duration: const Duration(milliseconds: 50),
+        Widget build(GaugeChartData d) => Directionality(
+              textDirection: TextDirection.ltr,
+              child: MediaQuery(
+                data: const MediaQueryData(),
+                child: GaugeChart(
+                  d,
+                  // Short animation for test speed
+                  duration: const Duration(milliseconds: 50),
+                ),
               ),
-            ),
-          );
+            );
 
-      await tester.pumpWidget(build(dataA));
-      expect(find.byType(GaugeChartLeaf), findsOneWidget);
+        await tester.pumpWidget(build(dataA));
+        expect(find.byType(GaugeChartLeaf), findsOneWidget);
 
-      // Update with new data should start an implicit animation (tween is updated)
-      await tester.pumpWidget(build(dataB));
+        // Update with new data should start an implicit animation
+        await tester.pumpWidget(build(dataB));
 
-      // Advance half of the animation, widget should still be present
-      await tester.pump(const Duration(milliseconds: 25));
-      expect(find.byType(GaugeChartLeaf), findsOneWidget);
+        // Advance half of the animation
+        await tester.pump(const Duration(milliseconds: 25));
+        expect(find.byType(GaugeChartLeaf), findsOneWidget);
 
-      // Finish the animation
-      await tester.pumpAndSettle();
-      expect(find.byType(GaugeChartLeaf), findsOneWidget);
-    });
+        // Finish the animation
+        await tester.pumpAndSettle();
+        expect(find.byType(GaugeChartLeaf), findsOneWidget);
+      },
+    );
   });
 }

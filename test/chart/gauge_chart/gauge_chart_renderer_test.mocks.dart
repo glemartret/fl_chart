@@ -1364,62 +1364,6 @@ class MockGaugeChartPainter extends _i1.Mock implements _i10.GaugeChartPainter {
       ) as _i2.Offset);
 
   @override
-  void drawTicks(
-    _i11.CanvasWrapper? canvasWrapper,
-    _i12.PaintHolder<_i13.GaugeChartData>? holder,
-  ) =>
-      super.noSuchMethod(
-        Invocation.method(
-          #drawTicks,
-          [
-            canvasWrapper,
-            holder,
-          ],
-        ),
-        returnValueForMissingStub: null,
-      );
-
-  @override
-  void drawValue(
-    _i11.CanvasWrapper? canvasWrapper,
-    _i12.PaintHolder<_i13.GaugeChartData>? holder,
-  ) =>
-      super.noSuchMethod(
-        Invocation.method(
-          #drawValue,
-          [
-            canvasWrapper,
-            holder,
-          ],
-        ),
-        returnValueForMissingStub: null,
-      );
-
-  @override
-  double gaugeRadius(_i2.Size? size) => (super.noSuchMethod(
-        Invocation.method(
-          #gaugeRadius,
-          [size],
-        ),
-        returnValue: 0.0,
-      ) as double);
-
-  @override
-  _i13.GaugeTouchedSpot? handleTouch(
-    _i2.Offset? touchedPoint,
-    _i2.Size? viewSize,
-    _i12.PaintHolder<_i13.GaugeChartData>? holder,
-  ) =>
-      (super.noSuchMethod(Invocation.method(
-        #handleTouch,
-        [
-          touchedPoint,
-          viewSize,
-          holder,
-        ],
-      )) as _i13.GaugeTouchedSpot?);
-
-  @override
   void paint(
     _i6.BuildContext? context,
     _i11.CanvasWrapper? canvasWrapper,
@@ -1436,4 +1380,51 @@ class MockGaugeChartPainter extends _i1.Mock implements _i10.GaugeChartPainter {
         ),
         returnValueForMissingStub: null,
       );
+
+  @override
+  void drawSections(
+    _i11.CanvasWrapper? canvasWrapper,
+    _i12.PaintHolder<_i13.GaugeChartData>? holder,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #drawSections,
+          [
+            canvasWrapper,
+            holder,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void drawTicks(
+    _i11.CanvasWrapper? canvasWrapper,
+    _i12.PaintHolder<_i13.GaugeChartData>? holder,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #drawTicks,
+          [
+            canvasWrapper,
+            holder,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i13.GaugeTouchedSection? handleTouch(
+    _i2.Offset? touchedPoint,
+    _i2.Size? viewSize,
+    _i12.PaintHolder<_i13.GaugeChartData>? holder,
+  ) =>
+      (super.noSuchMethod(Invocation.method(
+        #handleTouch,
+        [
+          touchedPoint,
+          viewSize,
+          holder,
+        ],
+      )) as _i13.GaugeTouchedSection?);
 }

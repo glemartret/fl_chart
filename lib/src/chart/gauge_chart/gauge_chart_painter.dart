@@ -1,4 +1,4 @@
-import 'dart:math';
+import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fl_chart/src/chart/base/base_chart/base_chart_painter.dart';
@@ -8,20 +8,120 @@ import 'package:flutter/material.dart';
 
 class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
   GaugeChartPainter() : super() {
-    _backgroundPaint = Paint()..isAntiAlias = true;
-    _valuePaint = Paint()..isAntiAlias = true;
-    _tickPaint = Paint();
+    _arcPaint = Paint()..isAntiAlias = true;
   }
 
-  late Paint _backgroundPaint;
-  late Paint _valuePaint;
-  late Paint _tickPaint;
-
-  _GaugePosition? _gaugePosition;
+  late Paint _arcPaint;
 
   @visibleForTesting
   Offset center(Size size) => Offset(size.width / 2.0, size.height / 2.0);
 
+  @override
+  void paint(
+    BuildContext context,
+    CanvasWrapper canvasWrapper,
+    PaintHolder<GaugeChartData> holder,
+  ) {
+    super.paint(context, canvasWrapper, holder);
+    drawSections(canvasWrapper, holder);
+    drawTicks(canvasWrapper, holder);
+  }
+
+  /// Draws every ring. Dispatches on the concrete [GaugeSection] type
+  /// so progress rings (`GaugeProgressSection`) and zones rings
+  /// (`GaugeZonesSection`) paint with their own logic.
+  @visibleForTesting
+  void drawSections(
+    CanvasWrapper canvasWrapper,
+    PaintHolder<GaugeChartData> holder,
+  ) {
+    final data = holder.data;
+    final strokeCenters = _sectionStrokeCenters(canvasWrapper.size, data);
+    for (var i = 0; i < data.sections.length; i++) {
+      final section = data.sections[i];
+      final width = data.resolveSectionWidth(section);
+      final radius = strokeCenters[i];
+      final rect =
+          Rect.fromCircle(center: center(canvasWrapper.size), radius: radius);
+
+      switch (section) {
+        case GaugeProgressSection():
+          _drawProgressSection(canvasWrapper, data, section, rect, width);
+        case GaugeZonesSection():
+          _drawZonesSection(canvasWrapper, data, section, rect, width);
+      }
+    }
+  }
+
+  void _drawProgressSection(
+    CanvasWrapper canvasWrapper,
+    GaugeChartData data,
+    GaugeProgressSection section,
+    Rect rect,
+    double width,
+  ) {
+    final signedSweep = _signedSweep(data);
+    final range = data.maxValue - data.minValue;
+
+    if (section.backgroundColor != null) {
+      _arcPaint
+        ..color = section.backgroundColor!
+        ..strokeWidth = width
+        ..strokeCap = data.strokeCap
+        ..style = PaintingStyle.stroke;
+      canvasWrapper.drawArc(
+        rect,
+        Utils().radians(data.startDegreeOffset),
+        Utils().radians(signedSweep),
+        false,
+        _arcPaint,
+      );
+    }
+
+    final filledSweep = signedSweep * ((section.value - data.minValue) / range);
+    _arcPaint
+      ..color = section.color
+      ..strokeWidth = width
+      ..strokeCap = data.strokeCap
+      ..style = PaintingStyle.stroke;
+    canvasWrapper.drawArc(
+      rect,
+      Utils().radians(data.startDegreeOffset),
+      Utils().radians(filledSweep),
+      false,
+      _arcPaint,
+    );
+  }
+
+  void _drawZonesSection(
+    CanvasWrapper canvasWrapper,
+    GaugeChartData data,
+    GaugeZonesSection section,
+    Rect rect,
+    double width,
+  ) {
+    final dir = data.direction == GaugeDirection.clockwise ? 1 : -1;
+    final degreesPerUnit = data.sweepAngle / (data.maxValue - data.minValue);
+    for (final zone in section.zones) {
+      final startDeg = data.startDegreeOffset +
+          dir * (zone.from - data.minValue) * degreesPerUnit;
+      final sweepDeg = dir * (zone.to - zone.from) * degreesPerUnit;
+      _arcPaint
+        ..color = zone.color
+        ..strokeWidth = width
+        ..strokeCap = data.strokeCap
+        ..style = PaintingStyle.stroke;
+      canvasWrapper.drawArc(
+        rect,
+        Utils().radians(startDeg),
+        Utils().radians(sweepDeg),
+        false,
+        _arcPaint,
+      );
+    }
+  }
+
+  /// Draws tick marks around the gauge as a whole (not a specific ring).
   @visibleForTesting
   void drawTicks(
     CanvasWrapper canvasWrapper,
@@ -32,240 +132,161 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
     if (ticks == null) return;
 
     final size = canvasWrapper.size;
+    final c = center(size);
+    final dir = data.direction == GaugeDirection.clockwise ? 1 : -1;
+    final interTickDegrees = (dir * data.sweepAngle) / (ticks.count - 1);
 
-    final centerOffset = center(size);
-    final startAngle = data.startDegreeOffset;
-    final angleRange = data.direction == GaugeDirection.clockwise
-        ? data.sweepAngle
-        : -data.sweepAngle;
-    final interTickAngle = angleRange / (ticks.count - 1);
-
-    _tickPaint.color = ticks.color;
-
-    final radius = gaugeRadius(size);
-
-    /// draw gauge ticks
+    final tickRadius = _tickRadius(size, data);
     for (var i = 0; i < ticks.count; i++) {
-      final angle = Utils().radians(startAngle + interTickAngle * i);
-      _drawTick(
-        canvasWrapper,
-        centerOffset,
-        angle,
-        radius,
-        ticks,
-        data.strokeWidth,
-      );
-    }
-
-    // draw changing color ticks
-    final valueColor = data.valueColor;
-    if (ticks.showChangingColorTicks) {
-      for (final tick in valueColor.getColoredTicks()) {
-        final angle = Utils().radians(startAngle + angleRange * tick.position);
-        _tickPaint.color = tick.color;
-        _drawTick(
-          canvasWrapper,
-          centerOffset,
-          angle,
-          radius,
-          ticks,
-          data.strokeWidth,
-        );
-      }
+      final angleRad =
+          Utils().radians(data.startDegreeOffset + interTickDegrees * i);
+      final position =
+          c + Offset(math.cos(angleRad), math.sin(angleRad)) * tickRadius;
+      ticks.painter.draw(canvasWrapper.canvas, position, angleRad);
     }
   }
 
-  @visibleForTesting
-  void drawValue(
-    CanvasWrapper canvasWrapper,
-    PaintHolder<GaugeChartData> holder,
-  ) {
-    final data = holder.data;
-
-    final backgroundColor = data.backgroundColor;
-    final position =
-        _gaugePosition = _calculateValuePosition(canvasWrapper.size, holder);
-
-    /// Draw background if needed
-    if (backgroundColor != null) {
-      _backgroundPaint
-        ..color = backgroundColor
-        ..strokeWidth = data.strokeWidth
-        ..strokeCap = data.strokeCap
-        ..style = PaintingStyle.stroke;
-      canvasWrapper.drawArc(
-        position.rect,
-        Utils().radians(position.startAngle),
-        Utils().radians(position.angleRange),
-        false,
-        _backgroundPaint,
-      );
-    }
-
-    /// Draw value
-    _valuePaint
-      ..color = data.valueColor.getColor(data.value)
-      ..strokeWidth = data.strokeWidth
-      ..strokeCap = data.strokeCap
-      ..style = PaintingStyle.stroke;
-    canvasWrapper.drawArc(
-      position.rect,
-      Utils().radians(position.startAngle),
-      Utils().radians(position.angleSize),
-      false,
-      _valuePaint,
-    );
-  }
-
-  @visibleForTesting
-  double gaugeRadius(Size size) => size.shortestSide / 2;
-
-  GaugeTouchedSpot? handleTouch(
+  /// Returns a [GaugeTouchedSection] describing what the touch hit, or
+  /// null when the touch was entirely outside the gauge's angular range.
+  ///
+  /// When the touch is on-arc but falls in the gap between rings (or
+  /// outside every ring's radial band) the returned section has
+  /// [GaugeTouchedSection.touchedSectionIndex] == -1 while still carrying
+  /// a valid [GaugeTouchedSection.touchValue].
+  GaugeTouchedSection? handleTouch(
     Offset touchedPoint,
     Size viewSize,
     PaintHolder<GaugeChartData> holder,
   ) {
-    final position =
-        _gaugePosition ??= _calculateValuePosition(viewSize, holder);
-    if (position.contains(touchedPoint)) {
-      final offset = position.getInterestSpot();
-      return GaugeTouchedSpot(
-        FlSpot(offset.dx, offset.dy),
-        offset,
-      );
-    }
-    return null;
-  }
-
-  @override
-  void paint(
-    BuildContext context,
-    CanvasWrapper canvasWrapper,
-    PaintHolder<GaugeChartData> holder,
-  ) {
-    super.paint(context, canvasWrapper, holder);
-
-    drawValue(canvasWrapper, holder);
-    drawTicks(canvasWrapper, holder);
-  }
-
-  _GaugePosition _calculateValuePosition(
-    Size viewSize,
-    PaintHolder<GaugeChartData> holder,
-  ) {
     final data = holder.data;
-    final size = Size.square(
-      viewSize.shortestSide - data.strokeWidth,
-    );
-    final demiStroke = data.strokeWidth / 2;
-    final offset = Offset(
-      max(viewSize.width - viewSize.height, 0) / 2 + demiStroke,
-      max(viewSize.height - viewSize.width, 0) / 2 + demiStroke,
-    );
-    final startAngle = data.startDegreeOffset;
-    final angleRange = data.direction == GaugeDirection.clockwise
-        ? data.sweepAngle
-        : -data.sweepAngle;
-    return _GaugePosition(
-      offset & size,
-      data.strokeCap,
-      data.strokeWidth,
-      angleRange,
-      startAngle,
-      angleRange * data.value.clamp(0, 1),
-    );
-  }
+    final c = center(viewSize);
+    final vector = touchedPoint - c;
+    final distance = vector.distance;
+    final touchAngleDeg = Utils().degrees(vector.direction);
 
-  void _drawTick(
-    CanvasWrapper canvasWrapper,
-    Offset center,
-    double angle,
-    double radius,
-    GaugeTicks ticks,
-    double strokeWidth,
-  ) {
-    final positionRadius = switch (ticks.position) {
-      GaugeTickPosition.inner =>
-        radius - strokeWidth - ticks.radius - ticks.margin,
-      GaugeTickPosition.outer => radius + ticks.radius + ticks.margin,
-      GaugeTickPosition.center => radius - strokeWidth / 2,
-    };
-    final tickX = center.dx + cos(angle) * positionRadius;
-    final tickY = center.dy + sin(angle) * positionRadius;
+    final along = _angleAlongSweep(touchAngleDeg, data);
+    if (along == null) return null;
 
-    canvasWrapper.drawCircle(Offset(tickX, tickY), ticks.radius, _tickPaint);
-  }
-}
+    final range = data.maxValue - data.minValue;
+    final touchValue = data.minValue + (along / data.sweepAngle) * range;
 
-class _DegreeAngleRange {
-  const _DegreeAngleRange(this.start, this.end);
-  final double start;
-  final double end;
+    final strokeCenters = _sectionStrokeCenters(viewSize, data);
+    for (var i = 0; i < data.sections.length; i++) {
+      final section = data.sections[i];
+      final width = data.resolveSectionWidth(section);
+      if ((distance - strokeCenters[i]).abs() > width / 2) continue;
 
-  bool contains(double angle) {
-    final ref = (end - start) < 0 ? end - start + 360 : end - start;
-    final value = (angle - start) < 0 ? angle - start + 360 : angle - start;
-    return end < start ? value > ref : value < ref;
-  }
-}
-
-class _GaugePosition {
-  _GaugePosition(
-    this.rect,
-    this.strokeCap,
-    this.strokeWidth,
-    this.angleRange,
-    this.startAngle,
-    this.angleSize,
-  );
-
-  final Rect rect;
-  final double strokeWidth;
-  final double angleRange;
-  final double startAngle;
-  final double angleSize;
-  final StrokeCap strokeCap;
-
-  bool contains(Offset point) {
-    final vector = point - rect.center;
-    var start = startAngle;
-    var end = angleSize < 0 ? angleSize + startAngle : angleSize - startAngle;
-    if (strokeCap != StrokeCap.butt) {
-      final strokeRadius = strokeWidth / 2;
-      final radius = rect.shortestSide / 2;
-      final bonusAngle = 180 * strokeRadius / (pi * radius);
-      start = angleSize < 0 ? start + bonusAngle : start - bonusAngle;
-      end = angleSize < 0 ? end - bonusAngle : end + bonusAngle;
+      switch (section) {
+        case GaugeProgressSection():
+          return GaugeTouchedSection(
+            touchedSection: section,
+            touchedSectionIndex: i,
+            touchAngle: touchAngleDeg,
+            touchRadius: distance,
+            touchValue: touchValue,
+            isOnValue: touchValue <= section.value,
+          );
+        case GaugeZonesSection():
+          var zoneIndex = -1;
+          GaugeZone? zone;
+          for (var j = 0; j < section.zones.length; j++) {
+            final z = section.zones[j];
+            if (touchValue >= z.from && touchValue <= z.to) {
+              zoneIndex = j;
+              zone = z;
+              // Later zones paint on top in drawZonesSection, so the
+              // visually-topmost zone is the last match — keep iterating.
+            }
+          }
+          return GaugeTouchedSection(
+            touchedSection: section,
+            touchedSectionIndex: i,
+            touchAngle: touchAngleDeg,
+            touchRadius: distance,
+            touchValue: touchValue,
+            isOnValue: false,
+            touchedZone: zone,
+            touchedZoneIndex: zoneIndex,
+          );
+      }
     }
-    return _calculateValidValueRange().contains(vector.distance) &&
-        _DegreeAngleRange(start, end)
-            .contains(Utils().degrees(vector.direction));
+
+    return GaugeTouchedSection(
+      touchedSection: null,
+      touchedSectionIndex: -1,
+      touchAngle: touchAngleDeg,
+      touchRadius: distance,
+      touchValue: touchValue,
+      isOnValue: false,
+    );
   }
 
-  Offset getInterestSpot() {
-    final radius = rect.shortestSide / 2;
-    final averageAngle = startAngle + angleSize / 2;
-    return rect.center +
-        Offset.fromDirection(Utils().radians(averageAngle), radius);
+  /// Padding reserved outside the outermost ring for ticks drawn on the
+  /// outer position.
+  double _outerTickPadding(GaugeChartData data) {
+    final ticks = data.ticks;
+    if (ticks == null || ticks.position != GaugeTickPosition.outer) return 0;
+    return ticks.margin + ticks.painter.getSize().height / 2;
   }
 
-  _Range _calculateValidValueRange() {
-    final radius = rect.shortestSide / 2;
-    final halfStroke = strokeWidth / 2;
-    return _Range.fromValues(radius - halfStroke, radius + halfStroke);
+  /// Outer radius available for the gauge's rings (excludes outer tick
+  /// padding).
+  double _outerArcRadius(Size viewSize, GaugeChartData data) =>
+      viewSize.shortestSide / 2 - _outerTickPadding(data);
+
+  /// Total radial thickness consumed by all rings plus the gaps between
+  /// them.
+  double _totalRingsDepth(GaugeChartData data) {
+    var depth = data.sectionsSpace * (data.sections.length - 1);
+    for (final section in data.sections) {
+      depth += data.resolveSectionWidth(section);
+    }
+    return depth;
   }
-}
 
-class _Range {
-  factory _Range.fromValues(double a, double b) {
-    return a > b ? _Range._(b, a) : _Range._(a, b);
+  /// Stroke-centered radius per section, indexed to match
+  /// [GaugeChartData.sections]: entry 0 is the innermost ring, the last
+  /// entry is the outermost.
+  List<double> _sectionStrokeCenters(Size viewSize, GaugeChartData data) {
+    final outer = _outerArcRadius(viewSize, data);
+    final innerEdge = outer - _totalRingsDepth(data);
+    final centers = <double>[];
+    var currentInner = innerEdge;
+    for (var i = 0; i < data.sections.length; i++) {
+      if (i > 0) currentInner += data.sectionsSpace;
+      final width = data.resolveSectionWidth(data.sections[i]);
+      centers.add(currentInner + width / 2);
+      currentInner += width;
+    }
+    return centers;
   }
-  const _Range._(this.min, this.max);
 
-  final double min;
-  final double max;
+  /// Where ticks are drawn radially, relative to the gauge's center.
+  double _tickRadius(Size viewSize, GaugeChartData data) {
+    final outer = _outerArcRadius(viewSize, data);
+    final inner = outer - _totalRingsDepth(data);
+    final ticks = data.ticks!;
+    final tickHalfSize = ticks.painter.getSize().height / 2;
+    return switch (ticks.position) {
+      GaugeTickPosition.outer => outer + ticks.margin + tickHalfSize,
+      GaugeTickPosition.inner => inner - ticks.margin - tickHalfSize,
+      GaugeTickPosition.center => (outer + inner) / 2,
+    };
+  }
 
-  bool contains(double value) {
-    return min <= value && max >= value;
+  double _signedSweep(GaugeChartData data) =>
+      data.direction == GaugeDirection.clockwise
+          ? data.sweepAngle
+          : -data.sweepAngle;
+
+  /// Projects [touchDeg] onto the arc's local angular coordinate
+  /// (0 at start, positive toward sweep end). Returns null when the
+  /// touch is outside the angular range.
+  double? _angleAlongSweep(double touchDeg, GaugeChartData data) {
+    final dir = data.direction == GaugeDirection.clockwise ? 1 : -1;
+    var rel = dir * (touchDeg - data.startDegreeOffset);
+    rel = ((rel % 360) + 360) % 360;
+    if (rel <= data.sweepAngle) return rel;
+    return null;
   }
 }
