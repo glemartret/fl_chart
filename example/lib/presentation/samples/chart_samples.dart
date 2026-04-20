@@ -1,8 +1,6 @@
 import 'package:fl_chart_app/presentation/samples/candlestick/candlestick_chart_sample1.dart';
 import 'package:fl_chart_app/presentation/samples/gauge/gauge_chart_sample1.dart';
-import 'package:fl_chart_app/presentation/samples/gauge/gauge_chart_sample2.dart';
 import 'package:fl_chart_app/presentation/samples/gauge/gauge_chart_sample3.dart';
-import 'package:fl_chart_app/presentation/samples/gauge/gauge_chart_sample4.dart';
 import 'package:fl_chart_app/util/app_helper.dart';
 
 import 'bar/bar_chart_sample1.dart';
@@ -14,6 +12,7 @@ import 'bar/bar_chart_sample6.dart';
 import 'bar/bar_chart_sample7.dart';
 import 'bar/bar_chart_sample8.dart';
 import 'chart_sample.dart';
+import 'gauge/gauge_chart_sample2.dart';
 import 'line/line_chart_sample1.dart';
 import 'line/line_chart_sample10.dart';
 import 'line/line_chart_sample11.dart';
@@ -82,7 +81,6 @@ class ChartSamples {
       GaugeChartSample(1, (context) => const GaugeChartSample1()),
       GaugeChartSample(2, (context) => const GaugeChartSample2()),
       GaugeChartSample(3, (context) => const GaugeChartSample3()),
-      GaugeChartSample(4, (context) => const GaugeChartSample4()),
     ],
   };
 }

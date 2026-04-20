@@ -1,5 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
-import 'package:fl_chart_app/presentation/resources/app_colors.dart';
+import 'package:fl_chart_app/presentation/resources/app_resources.dart';
 import 'package:flutter/material.dart';
 
 class GaugeChartSample1 extends StatefulWidget {
@@ -21,40 +21,31 @@ class GaugeChartSample1State extends State<GaugeChartSample1> {
           SizedBox(
             width: 250,
             height: 250,
-            child: GaugeChart(
-              GaugeChartData(
-                rings: [
-                  GaugeZonesRing(
-                    width: 100,
-                    zonesSpace: 8,
-                    zones: [
-                      GaugeZone(
-                        from: 0.0,
-                        to: 0.25,
-                        color: AppColors.contentColorRed,
-                      ),
-                      GaugeZone(
-                        from: 0.25,
-                        to: 0.5,
-                        color: AppColors.contentColorOrange,
-                      ),
-                      GaugeZone(
-                        from: 0.5,
-                        to: 0.75,
-                        color: AppColors.contentColorYellow,
-                      ),
-                      GaugeZone(
-                        from: 0.75,
-                        to: 1.0,
-                        color: AppColors.contentColorGreen,
-                      ),
-                    ],
+            child: Stack(
+              children: [
+                GaugeChart(
+                  GaugeChartData.progress(
+                    value: _value,
+                    color: AppColors.contentColorYellow,
+                    width: 30,
+                    backgroundColor:
+                        AppColors.contentColorPurple.withValues(alpha: 0.2),
+                    startDegreeOffset: -200,
+                    sweepAngle: 220,
+                    touchData: GaugeTouchData(enabled: true),
                   ),
-                ],
-                startDegreeOffset: -180,
-                sweepAngle: 180,
-                touchData: GaugeTouchData(enabled: true),
-              ),
+                ),
+                Center(
+                  child: Text(
+                    "${(_value * 100).toInt()}%",
+                    style: TextStyle(
+                      color: AppColors.contentColorWhite,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              ],
             ),
           ),
           Slider(value: _value, onChanged: (v) => setState(() => _value = v)),
