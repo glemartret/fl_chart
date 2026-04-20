@@ -28,10 +28,26 @@ class GaugeChartSample1State extends State<GaugeChartSample1> {
                     width: 100,
                     zonesSpace: 8,
                     zones: [
-                      GaugeZone(from: 0.0, to: 0.25, color: AppColors.contentColorRed),
-                      GaugeZone(from: 0.25, to: 0.5, color: AppColors.contentColorOrange),
-                      GaugeZone(from: 0.5, to: 0.75, color: AppColors.contentColorYellow),
-                      GaugeZone(from: 0.75, to: 1.0, color: AppColors.contentColorGreen),
+                      GaugeZone(
+                        from: 0.0,
+                        to: 0.25,
+                        color: AppColors.contentColorRed,
+                      ),
+                      GaugeZone(
+                        from: 0.25,
+                        to: 0.5,
+                        color: AppColors.contentColorOrange,
+                      ),
+                      GaugeZone(
+                        from: 0.5,
+                        to: 0.75,
+                        color: AppColors.contentColorYellow,
+                      ),
+                      GaugeZone(
+                        from: 0.75,
+                        to: 1.0,
+                        color: AppColors.contentColorGreen,
+                      ),
                     ],
                   ),
                 ],

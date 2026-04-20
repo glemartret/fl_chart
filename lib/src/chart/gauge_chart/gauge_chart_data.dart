@@ -314,10 +314,12 @@ final class GaugeZonesRing extends GaugeRing {
   /// zone's leading edge and the last zone's trailing edge are not
   /// touched, so zones stay flush to the gauge's angular extremes.
   ///
-  /// With `StrokeCap.round` or `StrokeCap.square` on a zone, the carve
-  /// extends radially past the ring to clip the cap flush with the
-  /// gap, producing clean perpendicular internal boundaries while
-  /// leaving the first / last zones' outer caps intact.
+  /// Per-zone `StrokeCap.round` is preserved: after the strip is
+  /// carved, each neighbor's internal end is re-drawn as a filled
+  /// circle so zones with rounded caps keep their pill look across
+  /// the gap. The visible gap between two rounded neighbors is
+  /// `zonesSpace − width`, so set `zonesSpace > width` to keep a
+  /// visible separator when caps are rounded.
   final double zonesSpace;
 
   GaugeZonesRing copyWith({

@@ -143,7 +143,7 @@ A ring divided into fixed colored [GaugeZone](#GaugeZone) bands. Zones are bound
 |PropName|Description|default value|
 |:-------|:----------|:------------|
 |zones| list of [GaugeZone](#GaugeZone) bands painted along this ring's arc|required|
-|zonesSpace| visible gap between adjacent zones, in pixels, measured **perpendicular to the ring** — so the gap has the same width at the ring's inner and outer edges regardless of how thick the ring is. Applied **only between zones** (in list order) by carving a rectangular strip at each internal boundary. The first zone's leading edge and the last zone's trailing edge are left flush to the gauge's angular extremes. With `StrokeCap.round` / `square`, the carve clips the cap flush with the gap, producing clean perpendicular internal boundaries while preserving the outer caps of the first and last zones.|0.0|
+|zonesSpace| visible gap between adjacent zones, in pixels, measured **perpendicular to the ring** — so the gap has the same width at the ring's inner and outer edges regardless of how thick the ring is. Applied **only between zones** (in list order) by carving a rectangular strip at each internal boundary. The first zone's leading edge and the last zone's trailing edge are left flush to the gauge's angular extremes. Per-zone `StrokeCap.round` is preserved: rounded neighbors keep a pill look across the gap (effective visible gap = `zonesSpace − width`), so set `zonesSpace > width` to keep a visible separator when caps are rounded.|0.0|
 |width| inherited from [GaugeRing](#GaugeRing)|null|
 
 ### GaugeZone

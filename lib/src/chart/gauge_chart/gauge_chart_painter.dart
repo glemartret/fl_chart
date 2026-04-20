@@ -145,17 +145,58 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
       ..blendMode = BlendMode.clear
       ..style = PaintingStyle.fill
       ..isAntiAlias = true;
+    final capRadius = width / 2;
+    // Half-gap angular offset: the tangent distance from the boundary
+    // to each zone's new stroke-center edge is `zonesSpace / 2`. At
+    // stroke-center radius, that maps to this angle.
+    final halfGapAngleRad = (ring.zonesSpace / 2) / strokeCenterRadius;
     for (var i = 0; i < ring.zones.length - 1; i++) {
       final boundaryDeg = data.startDegreeOffset +
           dir * (ring.zones[i].to - data.minValue) * degreesPerUnit;
+      final boundaryRad = Utils().radians(boundaryDeg);
       final strip = _perpendicularStripPath(
         center: c,
-        angleRad: Utils().radians(boundaryDeg),
+        angleRad: boundaryRad,
         strokeCenterRadius: strokeCenterRadius,
         strokeWidth: width,
         zonesSpace: ring.zonesSpace,
       );
       canvasWrapper.drawPath(strip, clearPaint);
+
+      // Re-add rounded caps on each side of the gap for zones that
+      // opted into StrokeCap.round. The full-angular arc drew the
+      // caps at the *original* boundary, which the strip just erased;
+      // we paint them back at each zone's shrunk end so the pill
+      // aesthetic survives without widening the visible gap beyond
+      // `zonesSpace - strokeWidth`.
+      final zoneBefore = ring.zones[i];
+      if (zoneBefore.strokeCap == StrokeCap.round) {
+        final capAngle = boundaryRad - dir * halfGapAngleRad;
+        canvasWrapper.drawCircle(
+          Offset(
+            c.dx + strokeCenterRadius * math.cos(capAngle),
+            c.dy + strokeCenterRadius * math.sin(capAngle),
+          ),
+          capRadius,
+          Paint()
+            ..color = zoneBefore.color
+            ..isAntiAlias = true,
+        );
+      }
+      final zoneAfter = ring.zones[i + 1];
+      if (zoneAfter.strokeCap == StrokeCap.round) {
+        final capAngle = boundaryRad + dir * halfGapAngleRad;
+        canvasWrapper.drawCircle(
+          Offset(
+            c.dx + strokeCenterRadius * math.cos(capAngle),
+            c.dy + strokeCenterRadius * math.sin(capAngle),
+          ),
+          capRadius,
+          Paint()
+            ..color = zoneAfter.color
+            ..isAntiAlias = true,
+        );
+      }
     }
     canvasWrapper.restore();
   }
