@@ -268,7 +268,8 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
     for (var i = 0; i < data.rings.length; i++) {
       final ring = data.rings[i];
       final width = data.resolveRingWidth(ring);
-      if ((distance - strokeCenters[i]).abs() > width / 2) continue;
+      final threshold = data.ringsSpace / 2;
+      if ((distance - strokeCenters[i]).abs() > width / 2 + threshold) continue;
 
       switch (ring) {
         case GaugeProgressRing():
