@@ -305,20 +305,19 @@ final class GaugeZonesRing extends GaugeRing {
   /// its own [GaugeZone.strokeCap].
   final List<GaugeZone> zones;
 
-  /// Visible gap between adjacent zones, in pixels along this ring's
-  /// arc (measured at its stroke-center radius).
+  /// Visible gap between adjacent zones, in pixels, measured
+  /// perpendicular to the ring (so the gap has the same width at the
+  /// inner and outer edges regardless of ring thickness).
   ///
-  /// Applied only *between* zones (in list order): each internal
-  /// boundary shrinks by `zonesSpace / 2` from the zones on either
-  /// side, leaving a `zonesSpace`-wide gap. The first zone's leading
-  /// edge and the last zone's trailing edge are not shrunk, so zones
-  /// stay flush to the gauge's angular extremes. Zones whose arc
-  /// collapses to zero or less are skipped.
+  /// Applied only *between* zones (in list order): a [zonesSpace]-wide
+  /// rectangular strip is carved at each internal boundary. The first
+  /// zone's leading edge and the last zone's trailing edge are not
+  /// touched, so zones stay flush to the gauge's angular extremes.
   ///
-  /// When using `StrokeCap.round` or `StrokeCap.square` on a zone, each
-  /// cap extends `width / 2` beyond the arc, so the effective visible
-  /// gap between two capped neighbors is `zonesSpace − width`. Set
-  /// `zonesSpace > width` to keep a visible gap when caps are rounded.
+  /// With `StrokeCap.round` or `StrokeCap.square` on a zone, the carve
+  /// extends radially past the ring to clip the cap flush with the
+  /// gap, producing clean perpendicular internal boundaries while
+  /// leaving the first / last zones' outer caps intact.
   final double zonesSpace;
 
   GaugeZonesRing copyWith({

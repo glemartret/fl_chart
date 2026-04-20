@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart_app/presentation/resources/app_colors.dart';
 import 'package:flutter/material.dart';
 
 class GaugeChartSample1 extends StatefulWidget {
@@ -22,51 +23,20 @@ class GaugeChartSample1State extends State<GaugeChartSample1> {
             height: 250,
             child: GaugeChart(
               GaugeChartData(
-                rings: const [
-                  GaugeProgressRing(
-                    value: 0.3,
-                    backgroundColor: Colors.grey,
-                    color: Colors.red,
-                  ),
-                  GaugeProgressRing(
-                    value: 0.4,
-                    color: Colors.green,
-                    backgroundColor: Colors.grey,
-                  ),
-                  GaugeProgressRing(
-                    value: 0.5,
-                    color: Colors.blue,
-                    backgroundColor: Colors.grey,
-                  ),
-                  GaugeProgressRing(
-                    value: 0.6,
-                    color: Colors.cyan,
-                    backgroundColor: Colors.grey,
-                  ),
-                  GaugeProgressRing(
-                    value: 0.7,
-                    color: Colors.amber,
-                    backgroundColor: Colors.grey,
-                  ),
-                  GaugeProgressRing(
-                    value: 0.8,
-                    color: Colors.deepOrange,
-                    backgroundColor: Colors.grey,
-                  ),
-                  GaugeProgressRing(
-                    value: 0.9,
-                    color: Colors.purpleAccent,
-                    backgroundColor: Colors.grey,
-                  ),
-                  GaugeProgressRing(
-                    value: 1,
-                    color: Colors.purpleAccent,
-                    backgroundColor: Colors.teal,
+                rings: [
+                  GaugeZonesRing(
+                    width: 100,
+                    zonesSpace: 8,
+                    zones: [
+                      GaugeZone(from: 0.0, to: 0.25, color: AppColors.contentColorRed),
+                      GaugeZone(from: 0.25, to: 0.5, color: AppColors.contentColorOrange),
+                      GaugeZone(from: 0.5, to: 0.75, color: AppColors.contentColorYellow),
+                      GaugeZone(from: 0.75, to: 1.0, color: AppColors.contentColorGreen),
+                    ],
                   ),
                 ],
-                ringsSpace: 8,
-                startDegreeOffset: -225,
-                sweepAngle: 270,
+                startDegreeOffset: -180,
+                sweepAngle: 180,
                 touchData: GaugeTouchData(enabled: true),
               ),
             ),

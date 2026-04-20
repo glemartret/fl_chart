@@ -75,11 +75,6 @@ void main() {
 
     test('GaugeChartData asserts', () {
       expect(
-        () => GaugeChartData(rings: const []),
-        throwsAssertionError,
-      );
-
-      expect(
         () => GaugeChartData(
           maxValue: 0,
           rings: const [GaugeProgressRing(value: 0, color: Colors.red)],

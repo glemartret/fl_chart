@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fl_chart/src/chart/base/base_chart/base_chart_painter.dart';
 import 'package:fl_chart/src/utils/canvas_wrapper.dart';
@@ -100,35 +102,101 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
   ) {
     final dir = data.direction == GaugeDirection.clockwise ? 1 : -1;
     final degreesPerUnit = data.sweepAngle / (data.maxValue - data.minValue);
-    // Convert px-along-arc spacing to a half-angle. zonesSpace is
-    // applied only between adjacent zones (by list order) — the first
-    // zone's leading edge and the last zone's trailing edge are not
-    // shrunk, so zones stay flush to the gauge's angular extremes.
-    final halfSpaceDeg =
-        Utils().degrees((ring.zonesSpace / 2) / strokeCenterRadius);
-    final lastIndex = ring.zones.length - 1;
-    for (var i = 0; i <= lastIndex; i++) {
-      final zone = ring.zones[i];
-      final leftShrink = i == 0 ? 0.0 : halfSpaceDeg;
-      final rightShrink = i == lastIndex ? 0.0 : halfSpaceDeg;
-      final rawSweepDeg = (zone.to - zone.from) * degreesPerUnit;
-      final sweepDeg = rawSweepDeg - leftShrink - rightShrink;
-      if (sweepDeg <= 0) continue;
+
+    void drawZoneArc(GaugeZone zone) {
       final startDeg = data.startDegreeOffset +
-          dir * ((zone.from - data.minValue) * degreesPerUnit + leftShrink);
+          dir * (zone.from - data.minValue) * degreesPerUnit;
+      final sweepDeg = dir * (zone.to - zone.from) * degreesPerUnit;
       _arcPaint
         ..color = zone.color
         ..strokeWidth = width
         ..strokeCap = zone.strokeCap
-        ..style = PaintingStyle.stroke;
+        ..style = PaintingStyle.stroke
+        ..blendMode = BlendMode.srcOver;
       canvasWrapper.drawArc(
         rect,
         Utils().radians(startDeg),
-        Utils().radians(dir * sweepDeg),
+        Utils().radians(sweepDeg),
         false,
         _arcPaint,
       );
     }
+
+    // No spacing needed — draw each zone full-angular.
+    if (ring.zonesSpace == 0 || ring.zones.length < 2) {
+      ring.zones.forEach(drawZoneArc);
+      return;
+    }
+
+    // Draw each zone full-angular, then carve a perpendicular
+    // rectangular strip at each internal boundary. The strip has a
+    // constant perpendicular width of `zonesSpace`, so the visible gap
+    // stays uniform across the ring's thickness (no wedge effect).
+    // `saveLayer` + `BlendMode.clear` is the standard technique for
+    // erasing already-painted pixels without leaking to the background.
+    final c = center(canvasWrapper.size);
+    final layerBounds = Rect.fromCircle(
+      center: c,
+      radius: strokeCenterRadius + width,
+    );
+    canvasWrapper.saveLayer(layerBounds, Paint());
+    ring.zones.forEach(drawZoneArc);
+    final clearPaint = Paint()
+      ..blendMode = BlendMode.clear
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    for (var i = 0; i < ring.zones.length - 1; i++) {
+      final boundaryDeg = data.startDegreeOffset +
+          dir * (ring.zones[i].to - data.minValue) * degreesPerUnit;
+      final strip = _perpendicularStripPath(
+        center: c,
+        angleRad: Utils().radians(boundaryDeg),
+        strokeCenterRadius: strokeCenterRadius,
+        strokeWidth: width,
+        zonesSpace: ring.zonesSpace,
+      );
+      canvasWrapper.drawPath(strip, clearPaint);
+    }
+    canvasWrapper.restore();
+  }
+
+  /// Builds a rectangular path centered on the radial line at
+  /// [angleRad], perpendicular to it, used to carve a uniform-width
+  /// gap between two adjacent zones.
+  ///
+  /// - Perpendicular extent (across the gap): [zonesSpace].
+  /// - Radial extent (along the ring): `strokeWidth * 2`, centered on
+  ///   [strokeCenterRadius] so the strip fully clears the ring plus
+  ///   any round/square caps on the adjacent zones.
+  Path _perpendicularStripPath({
+    required Offset center,
+    required double angleRad,
+    required double strokeCenterRadius,
+    required double strokeWidth,
+    required double zonesSpace,
+  }) {
+    final cosA = math.cos(angleRad);
+    final sinA = math.sin(angleRad);
+    // Tangent unit vector = radial rotated 90° CCW.
+    final tx = -sinA;
+    final ty = cosA;
+    final half = zonesSpace / 2;
+    final rOuter = strokeCenterRadius + strokeWidth;
+    final rInner = math.max<double>(0, strokeCenterRadius - strokeWidth);
+    Offset corner(double r, double s) => Offset(
+          center.dx + cosA * r + tx * half * s,
+          center.dy + sinA * r + ty * half * s,
+        );
+    final p1 = corner(rOuter, 1);
+    final p2 = corner(rOuter, -1);
+    final p3 = corner(rInner, -1);
+    final p4 = corner(rInner, 1);
+    return Path()
+      ..moveTo(p1.dx, p1.dy)
+      ..lineTo(p2.dx, p2.dy)
+      ..lineTo(p3.dx, p3.dy)
+      ..lineTo(p4.dx, p4.dy)
+      ..close();
   }
 
   /// Returns a [GaugeTouchedRing] describing what the touch hit, or

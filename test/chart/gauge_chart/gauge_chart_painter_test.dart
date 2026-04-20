@@ -483,21 +483,15 @@ void main() {
     });
 
     test(
-        'zonesSpace shrinks only between-zone boundaries, not gauge '
-        'extremes', () {
+        'zonesSpace draws zones full-angular and clears internal-boundary '
+        'strips via saveLayer + BlendMode.clear', () {
       const viewSize = Size(400, 400);
-      // stroke center radius = 200 - 10/2 = 195
-      const strokeCenter = 195.0;
-      const zonesSpace = 10.0;
-      // Identity utils mock returns Utils().degrees(x) == x, so the
-      // "degrees" per half-space are (zonesSpace / 2) / radius.
-      const halfSpaceDeg = (zonesSpace / 2) / strokeCenter;
       final data = GaugeChartData(
         maxValue: 100,
         rings: const [
           GaugeZonesRing(
             width: 10,
-            zonesSpace: zonesSpace,
+            zonesSpace: 8,
             zones: [
               GaugeZone(from: 0, to: 50, color: MockData.color0),
               GaugeZone(from: 50, to: 80, color: MockData.color1),
@@ -517,7 +511,7 @@ void main() {
       when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
       when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
 
-      final captured = <Map<String, double>>[];
+      final arcs = <Map<String, dynamic>>[];
       when(
         mockCanvasWrapper.drawArc(
           captureAny,
@@ -527,45 +521,52 @@ void main() {
           captureAny,
         ),
       ).thenAnswer((inv) {
-        captured.add({
+        arcs.add({
           'start': inv.positionalArguments[1] as double,
           'sweep': inv.positionalArguments[2] as double,
+          'color': (inv.positionalArguments[4] as Paint).color,
         });
+      });
+      final clearPaths = <Paint>[];
+      when(mockCanvasWrapper.drawPath(captureAny, captureAny))
+          .thenAnswer((inv) {
+        clearPaths.add(inv.positionalArguments[1] as Paint);
       });
 
       gaugePainter.drawSections(mockCanvasWrapper, holder);
 
-      expect(captured.length, 3);
-      // Zone 0 (first): no leading shrink, trailing shrink.
-      expect(captured[0]['start'], 0);
-      expect(captured[0]['sweep'], closeTo(90 - halfSpaceDeg, 1e-9));
-      // Zone 1 (middle): both shrinks.
-      expect(captured[1]['start'], closeTo(90 + halfSpaceDeg, 1e-9));
-      expect(captured[1]['sweep'], closeTo(54 - 2 * halfSpaceDeg, 1e-9));
-      // Zone 2 (last): leading shrink, no trailing shrink.
-      expect(captured[2]['start'], closeTo(144 + halfSpaceDeg, 1e-9));
-      expect(captured[2]['sweep'], closeTo(36 - halfSpaceDeg, 1e-9));
+      // saveLayer/restore wrap the zones-ring paint.
+      verify(mockCanvasWrapper.saveLayer(any, any)).called(1);
+      verify(mockCanvasWrapper.restore()).called(1);
+
+      // Every zone is drawn at its raw full angular range — no shrink.
+      expect(arcs.length, 3);
+      expect(arcs[0]['start'], 0);
+      expect(arcs[0]['sweep'], closeTo(90, 1e-9));
+      expect(arcs[1]['start'], closeTo(90, 1e-9));
+      expect(arcs[1]['sweep'], closeTo(54, 1e-9));
+      expect(arcs[2]['start'], closeTo(144, 1e-9));
+      expect(arcs[2]['sweep'], closeTo(36, 1e-9));
+
+      // One clear strip per internal boundary (zones.length - 1).
+      expect(clearPaths.length, 2);
+      for (final paint in clearPaths) {
+        expect(paint.blendMode, BlendMode.clear);
+        expect(paint.style, PaintingStyle.fill);
+      }
       Utils.changeInstance(utilsMainInstance);
     });
 
-    test('zonesSpace skips zones whose arc collapses to zero', () {
+    test('zonesSpace == 0 skips saveLayer and draws zones directly', () {
       const viewSize = Size(400, 400);
-      // sweepAngle 180 / maxValue 100 = 1.8°/unit. Middle zone spans
-      // 1°→1.8° — collapses when both-side shrink > 1.8°.
-      // halfSpaceDeg = (400/2)/195 ≈ 1.025°, so middle shrinks to
-      // 1.8 - 2*1.025 = -0.25 → skipped. First and last zones only
-      // bear one-sided shrink and survive comfortably.
       final data = GaugeChartData(
         maxValue: 100,
         rings: const [
           GaugeZonesRing(
             width: 10,
-            zonesSpace: 400,
             zones: [
               GaugeZone(from: 0, to: 50, color: MockData.color0),
-              // Narrow middle — collapses
-              GaugeZone(from: 50, to: 51, color: MockData.color1),
-              GaugeZone(from: 51, to: 100, color: MockData.color2),
+              GaugeZone(from: 50, to: 100, color: MockData.color1),
             ],
           ),
         ],
@@ -581,25 +582,12 @@ void main() {
       when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
       when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
 
-      final captured = <Color>[];
-      when(
-        mockCanvasWrapper.drawArc(
-          captureAny,
-          captureAny,
-          captureAny,
-          captureAny,
-          captureAny,
-        ),
-      ).thenAnswer((inv) {
-        captured.add((inv.positionalArguments[4] as Paint).color);
-      });
-
       gaugePainter.drawSections(mockCanvasWrapper, holder);
 
-      // Middle zone collapsed and skipped; first and last drawn.
-      expect(captured.length, 2);
-      expect(captured[0], isSameColorAs(MockData.color0));
-      expect(captured[1], isSameColorAs(MockData.color2));
+      verifyNever(mockCanvasWrapper.saveLayer(any, any));
+      verifyNever(mockCanvasWrapper.restore());
+      verifyNever(mockCanvasWrapper.drawPath(any, any));
+      verify(mockCanvasWrapper.drawArc(any, any, any, any, any)).called(2);
       Utils.changeInstance(utilsMainInstance);
     });
   });
