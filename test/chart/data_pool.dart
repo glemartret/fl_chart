@@ -83,12 +83,6 @@ const FlLine flLine1Clone =
 
 const FlSpot flSpot1 = FlSpot(1, 1);
 const FlSpot flSpot2 = FlSpot(4, 2);
-const GaugeTicks gaugeTicks1 = GaugeTicks(
-  count: 4,
-  margin: 7,
-  position: GaugeTickPosition.center,
-  painter: GaugeTickCirclePainter(radius: 4, color: Colors.blue),
-);
 
 const Line line1 = Line(Offset.zero, Offset(10, 10));
 
@@ -1343,19 +1337,18 @@ final FlSpot flSpot2Clone = flSpot2.copyWith();
 final GaugeChartData gaugeChartData1 = GaugeChartData(
   startDegreeOffset: 25,
   sweepAngle: 65,
-  defaultSectionWidth: 45,
-  sections: const [gaugeSection1],
-  strokeCap: StrokeCap.round,
-  ticks: gaugeTicks1,
+  defaultRingWidth: 45,
+  rings: const [gaugeRing1],
   touchData: gaugeTouchData1,
 );
 final GaugeChartData gaugeChartData1Clone = gaugeChartData1.copyWith();
-const GaugeProgressSection gaugeSection1 = GaugeProgressSection(
+const GaugeProgressRing gaugeRing1 = GaugeProgressRing(
   value: 0.2,
   color: Colors.black,
   backgroundColor: Colors.amber,
+  strokeCap: StrokeCap.round,
 );
-const GaugeProgressSection gaugeSection2 = GaugeProgressSection(
+const GaugeProgressRing gaugeRing2 = GaugeProgressRing(
   value: 0.8,
   color: Colors.red,
   width: 20,
@@ -1363,8 +1356,9 @@ const GaugeProgressSection gaugeSection2 = GaugeProgressSection(
 const GaugeZone gaugeZone1 = GaugeZone(from: 0, to: 0.3, color: Colors.red);
 const GaugeZone gaugeZone2 = GaugeZone(from: 0.3, to: 0.7, color: Colors.amber);
 const GaugeZone gaugeZone3 = GaugeZone(from: 0.7, to: 1, color: Colors.green);
-const GaugeZonesSection gaugeZonesSection1 = GaugeZonesSection(
+const GaugeZonesRing gaugeZonesRing1 = GaugeZonesRing(
   zones: [gaugeZone1, gaugeZone2, gaugeZone3],
+  zonesSpace: 2,
   width: 8,
 );
 final GaugeTouchData gaugeTouchData1 = GaugeTouchData(
@@ -1377,31 +1371,31 @@ final GaugeTouchData gaugeTouchData2 = GaugeTouchData(
   touchCallback: (_, __) {},
   mouseCursorResolver: (_, __) => MouseCursor.defer,
 );
-const GaugeTouchedSection gaugeTouchedSection1 = GaugeTouchedSection(
-  touchedSection: gaugeSection1,
-  touchedSectionIndex: 0,
+const GaugeTouchedRing gaugeTouchedRing1 = GaugeTouchedRing(
+  touchedRing: gaugeRing1,
+  touchedRingIndex: 0,
   touchAngle: 45,
   touchRadius: 100,
   touchValue: 0.1,
   isOnValue: true,
 );
-const GaugeTouchedSection gaugeTouchedSection2 = GaugeTouchedSection(
-  touchedSection: gaugeSection2,
-  touchedSectionIndex: 1,
+const GaugeTouchedRing gaugeTouchedRing2 = GaugeTouchedRing(
+  touchedRing: gaugeRing2,
+  touchedRingIndex: 1,
   touchAngle: 90,
   touchRadius: 110,
   touchValue: 0.5,
   isOnValue: true,
 );
-const GaugeTouchedSection gaugeTouchedSection3 = GaugeTouchedSection(
-  touchedSection: null,
-  touchedSectionIndex: -1,
+const GaugeTouchedRing gaugeTouchedRing3 = GaugeTouchedRing(
+  touchedRing: null,
+  touchedRingIndex: -1,
   touchAngle: 180,
   touchRadius: 200,
   touchValue: 0.7,
   isOnValue: false,
 );
-const GaugeTouchedSection gaugeTouchedSectionClone1 = gaugeTouchedSection1;
+const GaugeTouchedRing gaugeTouchedRingClone1 = gaugeTouchedRing1;
 final HorizontalLine horizontalLine1 = HorizontalLine(
   y: 12,
   color: Colors.red,

@@ -51,8 +51,8 @@ void main() {
     test('dispatches to drawSections (no ticks)', () {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 0.5, color: Colors.red, width: 2),
+        rings: const [
+          GaugeProgressRing(value: 0.5, color: Colors.red, width: 2),
         ],
         sweepAngle: 90,
       );
@@ -66,19 +66,18 @@ void main() {
       when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
       gaugePainter.paint(MockBuildContext(), mockCanvasWrapper, holder);
 
-      // One drawArc for the section's filled portion (no background).
+      // One drawArc for the ring's filled portion (no background).
       verify(mockCanvasWrapper.drawArc(any, any, any, any, any)).called(1);
       Utils.changeInstance(utilsMainInstance);
     });
   });
 
   group('drawSections()', () {
-    test('single section draws only filled arc when backgroundColor is null',
-        () {
+    test('single ring draws only filled arc when backgroundColor is null', () {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 0.5, color: MockData.color0, width: 2),
+        rings: const [
+          GaugeProgressRing(value: 0.5, color: MockData.color0, width: 2),
         ],
         startDegreeOffset: 0,
         sweepAngle: 90,
@@ -126,8 +125,8 @@ void main() {
     test('draws background arc + filled arc when backgroundColor is set', () {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(
+        rings: const [
+          GaugeProgressRing(
             value: 0.5,
             color: MockData.color0,
             width: 8,
@@ -179,18 +178,18 @@ void main() {
       Utils.changeInstance(utilsMainInstance);
     });
 
-    test('multiple sections stack innermost-first with sectionsSpace', () {
+    test('multiple rings stack innermost-first with ringsSpace', () {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
-        sections: const [
+        rings: const [
           // innermost
-          GaugeProgressSection(value: 0.5, color: Colors.red, width: 10),
-          GaugeProgressSection(value: 0.8, color: Colors.green, width: 20),
+          GaugeProgressRing(value: 0.5, color: Colors.red, width: 10),
+          GaugeProgressRing(value: 0.8, color: Colors.green, width: 20),
           // outermost
-          GaugeProgressSection(value: 0.3, color: Colors.blue, width: 15),
+          GaugeProgressRing(value: 0.3, color: Colors.blue, width: 15),
         ],
         sweepAngle: 180,
-        sectionsSpace: 4,
+        ringsSpace: 4,
       );
       final gaugePainter = GaugeChartPainter();
       final holder =
@@ -210,7 +209,7 @@ void main() {
 
       gaugePainter.drawSections(mockCanvasWrapper, holder);
 
-      // 3 sections, no backgroundColor → 3 draws.
+      // 3 rings, no backgroundColor → 3 draws.
       expect(rects.length, 3);
 
       // Outer = 200. Widths 10, 20, 15; gaps 4 each; total depth = 53.
@@ -228,8 +227,8 @@ void main() {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
         maxValue: 100,
-        sections: const [
-          GaugeProgressSection(value: 75, color: Colors.red, width: 10),
+        rings: const [
+          GaugeProgressRing(value: 75, color: Colors.red, width: 10),
         ],
         sweepAngle: 180,
       );
@@ -259,8 +258,8 @@ void main() {
     test('counterClockwise direction flips the filled sweep sign', () {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 0.5, color: Colors.red, width: 5),
+        rings: const [
+          GaugeProgressRing(value: 0.5, color: Colors.red, width: 5),
         ],
         sweepAngle: 100,
         direction: GaugeDirection.counterClockwise,
@@ -288,144 +287,12 @@ void main() {
     });
   });
 
-  group('drawTicks()', () {
-    test('outer position places ticks beyond the outermost ring', () {
-      const viewSize = Size(400, 400);
-      final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 1, color: Colors.red, width: 10),
-        ],
-        startDegreeOffset: 0,
-        sweepAngle: 90,
-        ticks: const GaugeTicks(
-          count: 5,
-          margin: 5,
-          painter: GaugeTickCirclePainter(radius: 4, color: MockData.color0),
-        ),
-      );
-      final gaugePainter = GaugeChartPainter();
-      final holder =
-          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
-      installIdentityUtilsMock();
-
-      final mockCanvas = MockCanvas();
-      final mockCanvasWrapper = MockCanvasWrapper();
-      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
-      when(mockCanvasWrapper.canvas).thenReturn(mockCanvas);
-
-      final tickOffsets = <Offset>[];
-      when(mockCanvas.drawCircle(captureAny, captureAny, captureAny))
-          .thenAnswer((inv) {
-        tickOffsets.add(inv.positionalArguments[0] as Offset);
-      });
-
-      gaugePainter.drawTicks(mockCanvasWrapper, holder);
-
-      expect(tickOffsets.length, 5);
-      // outerTickPadding = margin(5) + tickHalfHeight(4) = 9
-      // outerArcRadius = 200 - 9 = 191
-      // tickRadius = 191 + 5 + 4 = 200
-      for (var i = 0; i < 5; i++) {
-        final angleDeg = 90 / 4 * i;
-        final angleRad = angleDeg; // mocked pass-through
-        final expected =
-            const Offset(200, 200) + Offset(cos(angleRad), sin(angleRad)) * 200;
-        expect(
-          (tickOffsets[i] - expected).distance,
-          lessThan(1e-6),
-          reason: 'tick $i',
-        );
-      }
-      Utils.changeInstance(utilsMainInstance);
-    });
-
-    test('inner and center tick positions shift the tick radius', () {
-      const viewSize = Size(400, 400);
-      GaugeChartData makeData(GaugeTickPosition position) => GaugeChartData(
-            sections: const [
-              GaugeProgressSection(value: 1, color: Colors.red, width: 20),
-              GaugeProgressSection(value: 1, color: Colors.green, width: 20),
-            ],
-            sectionsSpace: 4,
-            startDegreeOffset: 0,
-            sweepAngle: 90,
-            ticks: GaugeTicks(
-              count: 2,
-              position: position,
-              margin: 5,
-              painter: const GaugeTickCirclePainter(
-                radius: 4,
-                color: MockData.color0,
-              ),
-            ),
-          );
-
-      for (final position in [
-        GaugeTickPosition.inner,
-        GaugeTickPosition.center,
-      ]) {
-        final data = makeData(position);
-        final gaugePainter = GaugeChartPainter();
-        final holder =
-            PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
-        installIdentityUtilsMock();
-
-        final mockCanvas = MockCanvas();
-        final mockCanvasWrapper = MockCanvasWrapper();
-        when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
-        when(mockCanvasWrapper.canvas).thenReturn(mockCanvas);
-
-        final tickOffsets = <Offset>[];
-        when(mockCanvas.drawCircle(captureAny, captureAny, captureAny))
-            .thenAnswer((inv) {
-          tickOffsets.add(inv.positionalArguments[0] as Offset);
-        });
-
-        gaugePainter.drawTicks(mockCanvasWrapper, holder);
-
-        expect(tickOffsets.length, 2);
-        // outer arc radius = 200 (no outer-tick padding for inner/center).
-        // totalRingsDepth = 20 + 4 + 20 = 44. innerEdge = 200 - 44 = 156.
-        // inner tick radius = 156 - 5 - 4 = 147
-        // center tick radius = (200 + 156) / 2 = 178
-        final expectedRadius = position == GaugeTickPosition.inner ? 147 : 178;
-        final firstDistance =
-            (tickOffsets[0] - const Offset(200, 200)).distance;
-        expect(firstDistance, closeTo(expectedRadius, 1e-6));
-        Utils.changeInstance(utilsMainInstance);
-      }
-    });
-
-    test('no-op when ticks is null', () {
-      const viewSize = Size(400, 400);
-      final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 1, color: Colors.red, width: 10),
-        ],
-        sweepAngle: 90,
-      );
-      final gaugePainter = GaugeChartPainter();
-      final holder =
-          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
-      installIdentityUtilsMock();
-
-      final mockCanvas = MockCanvas();
-      final mockCanvasWrapper = MockCanvasWrapper();
-      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
-      when(mockCanvasWrapper.canvas).thenReturn(mockCanvas);
-
-      gaugePainter.drawTicks(mockCanvasWrapper, holder);
-      verifyNever(mockCanvas.drawCircle(any, any, any));
-      Utils.changeInstance(utilsMainInstance);
-    });
-  });
-
   group('handleTouch()', () {
     test('returns null for touches outside the arc angular range', () {
       const viewSize = Size(250, 250);
       final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 1, color: Colors.red, width: 30),
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 30),
         ],
         startDegreeOffset: 0,
         sweepAngle: 90, // arc from 0° to 90°
@@ -450,8 +317,8 @@ void main() {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
         maxValue: 100,
-        sections: const [
-          GaugeProgressSection(value: 70, color: Colors.red, width: 20),
+        rings: const [
+          GaugeProgressRing(value: 70, color: Colors.red, width: 20),
         ],
         startDegreeOffset: 0,
         sweepAngle: 180,
@@ -470,7 +337,7 @@ void main() {
       final hit = gaugePainter.handleTouch(touch, viewSize, holder);
 
       expect(hit, isNotNull);
-      expect(hit!.touchedSectionIndex, 0);
+      expect(hit!.touchedRingIndex, 0);
       expect(hit.touchValue, closeTo(25, 1e-6));
       expect(hit.isOnValue, isTrue);
       Utils.changeInstance(utilsMainInstance);
@@ -482,8 +349,8 @@ void main() {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
         maxValue: 100,
-        sections: const [
-          GaugeProgressSection(value: 70, color: Colors.red, width: 20),
+        rings: const [
+          GaugeProgressRing(value: 70, color: Colors.red, width: 20),
         ],
         startDegreeOffset: 0,
         sweepAngle: 180,
@@ -501,20 +368,20 @@ void main() {
       final hit = gaugePainter.handleTouch(touch, viewSize, holder);
 
       expect(hit, isNotNull);
-      expect(hit!.touchedSectionIndex, 0);
+      expect(hit!.touchedRingIndex, 0);
       expect(hit.touchValue, closeTo(90, 1e-6));
       expect(hit.isOnValue, isFalse);
       Utils.changeInstance(utilsMainInstance);
     });
 
-    test('inner rings are reachable when stacked with sectionsSpace', () {
+    test('inner rings are reachable when stacked with ringsSpace', () {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 1, color: Colors.red, width: 10),
-          GaugeProgressSection(value: 1, color: Colors.blue, width: 10),
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+          GaugeProgressRing(value: 1, color: Colors.blue, width: 10),
         ],
-        sectionsSpace: 4,
+        ringsSpace: 4,
         startDegreeOffset: 0,
         sweepAngle: 180,
       );
@@ -532,14 +399,14 @@ void main() {
         viewSize,
         holder,
       );
-      expect(hitInner!.touchedSectionIndex, 0);
+      expect(hitInner!.touchedRingIndex, 0);
 
       final hitOuter = gaugePainter.handleTouch(
         center + const Offset(195, 0),
         viewSize,
         holder,
       );
-      expect(hitOuter!.touchedSectionIndex, 1);
+      expect(hitOuter!.touchedRingIndex, 1);
 
       // Touch in the gap between rings (radius 188 → neither ring).
       final miss = gaugePainter.handleTouch(
@@ -548,8 +415,8 @@ void main() {
         holder,
       );
       expect(miss, isNotNull);
-      expect(miss!.touchedSection, isNull);
-      expect(miss.touchedSectionIndex, -1);
+      expect(miss!.touchedRing, isNull);
+      expect(miss.touchedRingIndex, -1);
       expect(miss.isOnValue, isFalse);
       Utils.changeInstance(utilsMainInstance);
     });
@@ -560,8 +427,8 @@ void main() {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
         maxValue: 100,
-        sections: const [
-          GaugeZonesSection(
+        rings: const [
+          GaugeZonesRing(
             width: 10,
             zones: [
               GaugeZone(from: 0, to: 50, color: MockData.color0),
@@ -614,6 +481,127 @@ void main() {
       expect(captured[2]['sweep'], closeTo(36, 1e-9));
       Utils.changeInstance(utilsMainInstance);
     });
+
+    test(
+        'zonesSpace shrinks only between-zone boundaries, not gauge '
+        'extremes', () {
+      const viewSize = Size(400, 400);
+      // stroke center radius = 200 - 10/2 = 195
+      const strokeCenter = 195.0;
+      const zonesSpace = 10.0;
+      // Identity utils mock returns Utils().degrees(x) == x, so the
+      // "degrees" per half-space are (zonesSpace / 2) / radius.
+      const halfSpaceDeg = (zonesSpace / 2) / strokeCenter;
+      final data = GaugeChartData(
+        maxValue: 100,
+        rings: const [
+          GaugeZonesRing(
+            width: 10,
+            zonesSpace: zonesSpace,
+            zones: [
+              GaugeZone(from: 0, to: 50, color: MockData.color0),
+              GaugeZone(from: 50, to: 80, color: MockData.color1),
+              GaugeZone(from: 80, to: 100, color: MockData.color2),
+            ],
+          ),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 180,
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final captured = <Map<String, double>>[];
+      when(
+        mockCanvasWrapper.drawArc(
+          captureAny,
+          captureAny,
+          captureAny,
+          captureAny,
+          captureAny,
+        ),
+      ).thenAnswer((inv) {
+        captured.add({
+          'start': inv.positionalArguments[1] as double,
+          'sweep': inv.positionalArguments[2] as double,
+        });
+      });
+
+      gaugePainter.drawSections(mockCanvasWrapper, holder);
+
+      expect(captured.length, 3);
+      // Zone 0 (first): no leading shrink, trailing shrink.
+      expect(captured[0]['start'], 0);
+      expect(captured[0]['sweep'], closeTo(90 - halfSpaceDeg, 1e-9));
+      // Zone 1 (middle): both shrinks.
+      expect(captured[1]['start'], closeTo(90 + halfSpaceDeg, 1e-9));
+      expect(captured[1]['sweep'], closeTo(54 - 2 * halfSpaceDeg, 1e-9));
+      // Zone 2 (last): leading shrink, no trailing shrink.
+      expect(captured[2]['start'], closeTo(144 + halfSpaceDeg, 1e-9));
+      expect(captured[2]['sweep'], closeTo(36 - halfSpaceDeg, 1e-9));
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test('zonesSpace skips zones whose arc collapses to zero', () {
+      const viewSize = Size(400, 400);
+      // sweepAngle 180 / maxValue 100 = 1.8°/unit. Middle zone spans
+      // 1°→1.8° — collapses when both-side shrink > 1.8°.
+      // halfSpaceDeg = (400/2)/195 ≈ 1.025°, so middle shrinks to
+      // 1.8 - 2*1.025 = -0.25 → skipped. First and last zones only
+      // bear one-sided shrink and survive comfortably.
+      final data = GaugeChartData(
+        maxValue: 100,
+        rings: const [
+          GaugeZonesRing(
+            width: 10,
+            zonesSpace: 400,
+            zones: [
+              GaugeZone(from: 0, to: 50, color: MockData.color0),
+              // Narrow middle — collapses
+              GaugeZone(from: 50, to: 51, color: MockData.color1),
+              GaugeZone(from: 51, to: 100, color: MockData.color2),
+            ],
+          ),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 180,
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final captured = <Color>[];
+      when(
+        mockCanvasWrapper.drawArc(
+          captureAny,
+          captureAny,
+          captureAny,
+          captureAny,
+          captureAny,
+        ),
+      ).thenAnswer((inv) {
+        captured.add((inv.positionalArguments[4] as Paint).color);
+      });
+
+      gaugePainter.drawSections(mockCanvasWrapper, holder);
+
+      // Middle zone collapsed and skipped; first and last drawn.
+      expect(captured.length, 2);
+      expect(captured[0], isSameColorAs(MockData.color0));
+      expect(captured[1], isSameColorAs(MockData.color2));
+      Utils.changeInstance(utilsMainInstance);
+    });
   });
 
   group('handleTouch() — zones ring', () {
@@ -621,8 +609,8 @@ void main() {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
         maxValue: 100,
-        sections: const [
-          GaugeZonesSection(
+        rings: const [
+          GaugeZonesRing(
             width: 20,
             zones: [
               GaugeZone(from: 0, to: 50, color: Colors.red),
@@ -647,7 +635,7 @@ void main() {
         final touch = center + Offset(cos(rad), sin(rad)) * 190;
         final hit = gaugePainter.handleTouch(touch, viewSize, holder);
         expect(hit, isNotNull);
-        expect(hit!.touchedSectionIndex, 0);
+        expect(hit!.touchedRingIndex, 0);
         expect(hit.touchedZoneIndex, 0);
         expect(hit.touchedZone?.color, Colors.red);
         expect(hit.isOnValue, isFalse); // zones never flag isOnValue
@@ -667,8 +655,8 @@ void main() {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
         maxValue: 100,
-        sections: const [
-          GaugeZonesSection(
+        rings: const [
+          GaugeZonesRing(
             width: 20,
             zones: [
               GaugeZone(from: 0, to: 30, color: Colors.red),
@@ -693,8 +681,8 @@ void main() {
 
       expect(hit, isNotNull);
       // Ring itself IS hit
-      expect(hit!.touchedSectionIndex, 0);
-      expect(hit.touchedSection, isA<GaugeZonesSection>());
+      expect(hit!.touchedRingIndex, 0);
+      expect(hit.touchedRing, isA<GaugeZonesRing>());
       // But no zone contains value 50
       expect(hit.touchedZone, isNull);
       expect(hit.touchedZoneIndex, -1);

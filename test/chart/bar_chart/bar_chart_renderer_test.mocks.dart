@@ -1169,26 +1169,6 @@ class MockPaintingContext extends _i1.Mock implements _i3.PaintingContext {
       );
 
   @override
-  void clipRSuperellipseAndPaint(
-    _i2.RSuperellipse? rse,
-    _i2.Clip? clipBehavior,
-    _i2.Rect? bounds,
-    _i2.VoidCallback? painter,
-  ) =>
-      super.noSuchMethod(
-        Invocation.method(
-          #clipRSuperellipseAndPaint,
-          [
-            rse,
-            clipBehavior,
-            bounds,
-            painter,
-          ],
-        ),
-        returnValueForMissingStub: null,
-      );
-
-  @override
   void clipRectAndPaint(
     _i2.Rect? rect,
     _i2.Clip? clipBehavior,

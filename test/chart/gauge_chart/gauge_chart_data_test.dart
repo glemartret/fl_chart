@@ -12,8 +12,8 @@ void main() {
       expect(
         gaugeChartData1 ==
             gaugeChartData1Clone.copyWith(
-              sections: const [
-                GaugeProgressSection(value: 0.5, color: Colors.black),
+              rings: const [
+                GaugeProgressRing(value: 0.5, color: Colors.black),
               ],
             ),
         false,
@@ -33,16 +33,8 @@ void main() {
       expect(
         gaugeChartData1 ==
             gaugeChartData1Clone.copyWith(
-              ticks: const GaugeTicks(
-                painter: GaugeTickCirclePainter(color: Colors.white),
-              ),
+              rings: [gaugeRing1.copyWith(strokeCap: StrokeCap.square)],
             ),
-        false,
-      );
-
-      expect(
-        gaugeChartData1 ==
-            gaugeChartData1Clone.copyWith(strokeCap: StrokeCap.square),
         false,
       );
 
@@ -71,27 +63,26 @@ void main() {
       );
 
       expect(
-        gaugeChartData1 ==
-            gaugeChartData1Clone.copyWith(defaultSectionWidth: 7),
+        gaugeChartData1 == gaugeChartData1Clone.copyWith(defaultRingWidth: 7),
         false,
       );
 
       expect(
-        gaugeChartData1 == gaugeChartData1Clone.copyWith(sectionsSpace: 2),
+        gaugeChartData1 == gaugeChartData1Clone.copyWith(ringsSpace: 2),
         false,
       );
     });
 
     test('GaugeChartData asserts', () {
       expect(
-        () => GaugeChartData(sections: const []),
+        () => GaugeChartData(rings: const []),
         throwsAssertionError,
       );
 
       expect(
         () => GaugeChartData(
           maxValue: 0,
-          sections: const [GaugeProgressSection(value: 0, color: Colors.red)],
+          rings: const [GaugeProgressRing(value: 0, color: Colors.red)],
         ),
         throwsAssertionError,
       );
@@ -99,8 +90,8 @@ void main() {
       expect(
         () => GaugeChartData(
           sweepAngle: 0,
-          sections: const [
-            GaugeProgressSection(value: 0.5, color: Colors.red),
+          rings: const [
+            GaugeProgressRing(value: 0.5, color: Colors.red),
           ],
         ),
         throwsAssertionError,
@@ -109,8 +100,8 @@ void main() {
       expect(
         () => GaugeChartData(
           sweepAngle: 400,
-          sections: const [
-            GaugeProgressSection(value: 0.5, color: Colors.red),
+          rings: const [
+            GaugeProgressRing(value: 0.5, color: Colors.red),
           ],
         ),
         throwsAssertionError,
@@ -119,7 +110,7 @@ void main() {
       // progress value outside [minValue, maxValue]
       expect(
         () => GaugeChartData(
-          sections: const [GaugeProgressSection(value: 2, color: Colors.red)],
+          rings: const [GaugeProgressRing(value: 2, color: Colors.red)],
         ),
         throwsAssertionError,
       );
@@ -127,8 +118,8 @@ void main() {
       // zone outside [minValue, maxValue]
       expect(
         () => GaugeChartData(
-          sections: const [
-            GaugeZonesSection(
+          rings: const [
+            GaugeZonesRing(
               zones: [GaugeZone(from: 0, to: 2, color: Colors.red)],
             ),
           ],
@@ -139,31 +130,40 @@ void main() {
       // empty zones in a chart rejected at GaugeChartData level
       expect(
         () => GaugeChartData(
-          sections: const [GaugeZonesSection(zones: [])],
+          rings: const [GaugeZonesRing(zones: [])],
         ),
         throwsAssertionError,
       );
 
-      // negative sectionsSpace
+      // negative ringsSpace
       expect(
         () => GaugeChartData(
-          sections: const [
-            GaugeProgressSection(value: 0.5, color: Colors.red),
+          rings: const [
+            GaugeProgressRing(value: 0.5, color: Colors.red),
           ],
-          sectionsSpace: -1,
+          ringsSpace: -1,
         ),
         throwsAssertionError,
       );
 
-      // invalid section width
+      // invalid ring width
       expect(
-        () => GaugeProgressSection(value: 0.5, color: Colors.red, width: 0),
+        () => GaugeProgressRing(value: 0.5, color: Colors.red, width: 0),
         throwsAssertionError,
       );
 
       // invalid zone range
       expect(
         () => GaugeZone(from: 0.5, to: 0.3, color: Colors.red),
+        throwsAssertionError,
+      );
+
+      // negative zonesSpace
+      expect(
+        () => GaugeZonesRing(
+          zones: const [GaugeZone(from: 0, to: 1, color: Colors.red)],
+          zonesSpace: -1,
+        ),
         throwsAssertionError,
       );
     });
@@ -175,13 +175,13 @@ void main() {
         width: 20,
         backgroundColor: Colors.grey,
       );
-      expect(data.sections.length, 1);
-      final section = data.sections.first as GaugeProgressSection;
-      expect(section.value, 0.6);
-      expect(section.color, Colors.red);
-      expect(section.width, 20);
-      expect(section.backgroundColor, Colors.grey);
-      expect(data.defaultSectionWidth, 20);
+      expect(data.rings.length, 1);
+      final ring = data.rings.first as GaugeProgressRing;
+      expect(ring.value, 0.6);
+      expect(ring.color, Colors.red);
+      expect(ring.width, 20);
+      expect(ring.backgroundColor, Colors.grey);
+      expect(data.defaultRingWidth, 20);
 
       final clampedHigh = GaugeChartData.progress(
         value: 2,
@@ -189,7 +189,7 @@ void main() {
         width: 20,
       );
       expect(
-        (clampedHigh.sections.first as GaugeProgressSection).value,
+        (clampedHigh.rings.first as GaugeProgressRing).value,
         1,
       );
 
@@ -198,34 +198,34 @@ void main() {
         color: Colors.red,
         width: 20,
       );
-      expect((clampedLow.sections.first as GaugeProgressSection).value, 0);
+      expect((clampedLow.rings.first as GaugeProgressRing).value, 0);
     });
 
-    test('GaugeProgressSection equality and copyWith', () {
-      expect(gaugeSection1 == gaugeSection1.copyWith(), true);
-      expect(gaugeSection1 == gaugeSection1.copyWith(value: 0.4), false);
-      expect(gaugeSection1 == gaugeSection1.copyWith(color: Colors.red), false);
-      expect(gaugeSection1 == gaugeSection1.copyWith(width: 10), false);
+    test('GaugeProgressRing equality and copyWith', () {
+      expect(gaugeRing1 == gaugeRing1.copyWith(), true);
+      expect(gaugeRing1 == gaugeRing1.copyWith(value: 0.4), false);
+      expect(gaugeRing1 == gaugeRing1.copyWith(color: Colors.red), false);
+      expect(gaugeRing1 == gaugeRing1.copyWith(width: 10), false);
       expect(
-        gaugeSection1 == gaugeSection1.copyWith(backgroundColor: Colors.pink),
+        gaugeRing1 == gaugeRing1.copyWith(backgroundColor: Colors.pink),
         false,
       );
     });
 
-    test('GaugeProgressSection.lerp', () {
-      const a = GaugeProgressSection(
+    test('GaugeProgressRing.lerp', () {
+      const a = GaugeProgressRing(
         value: 0.2,
         color: Colors.red,
         width: 10,
         backgroundColor: Colors.pink,
       );
-      const b = GaugeProgressSection(
+      const b = GaugeProgressRing(
         value: 0.8,
         color: Colors.blue,
         width: 30,
         backgroundColor: Colors.lightBlue,
       );
-      final mid = GaugeProgressSection.lerp(a, b, 0.5);
+      final mid = GaugeProgressRing.lerp(a, b, 0.5);
       expect(mid.value, closeTo(0.5, 1e-9));
       expect(mid.width, 20);
       expect(mid.color, Color.lerp(Colors.red, Colors.blue, 0.5));
@@ -249,33 +249,38 @@ void main() {
       expect(mid.color, Color.lerp(Colors.red, Colors.blue, 0.5));
     });
 
-    test('GaugeZonesSection equality, copyWith, lerp', () {
-      const a = GaugeZonesSection(
+    test('GaugeZonesRing equality, copyWith, lerp', () {
+      const a = GaugeZonesRing(
         zones: [
           GaugeZone(from: 0, to: 0.5, color: Colors.red),
           GaugeZone(from: 0.5, to: 1, color: Colors.green),
         ],
+        zonesSpace: 4,
         width: 10,
       );
-      const a2 = GaugeZonesSection(
+      const a2 = GaugeZonesRing(
         zones: [
           GaugeZone(from: 0, to: 0.5, color: Colors.red),
           GaugeZone(from: 0.5, to: 1, color: Colors.green),
         ],
+        zonesSpace: 4,
         width: 10,
       );
       expect(a == a2, true);
       expect(a == a.copyWith(width: 20), false);
+      expect(a == a.copyWith(zonesSpace: 8), false);
 
-      const b = GaugeZonesSection(
+      const b = GaugeZonesRing(
         zones: [
           GaugeZone(from: 0, to: 0.3, color: Colors.red),
           GaugeZone(from: 0.3, to: 1, color: Colors.blue),
         ],
+        zonesSpace: 8,
         width: 20,
       );
-      final mid = GaugeZonesSection.lerp(a, b, 0.5);
+      final mid = GaugeZonesRing.lerp(a, b, 0.5);
       expect(mid.width, 15);
+      expect(mid.zonesSpace, closeTo(6, 1e-9));
       expect(mid.zones[0].to, closeTo(0.4, 1e-9));
       expect(
         mid.zones[1].color,
@@ -283,32 +288,31 @@ void main() {
       );
     });
 
-    test('GaugeSection.lerp dispatches by type', () {
-      const progressA = GaugeProgressSection(value: 0.2, color: Colors.red);
-      const progressB = GaugeProgressSection(value: 0.8, color: Colors.red);
+    test('GaugeRing.lerp dispatches by type', () {
+      const progressA = GaugeProgressRing(value: 0.2, color: Colors.red);
+      const progressB = GaugeProgressRing(value: 0.8, color: Colors.red);
       final progressMid =
-          GaugeSection.lerp(progressA, progressB, 0.5) as GaugeProgressSection;
+          GaugeRing.lerp(progressA, progressB, 0.5) as GaugeProgressRing;
       expect(progressMid.value, closeTo(0.5, 1e-9));
 
-      const zonesA = GaugeZonesSection(
+      const zonesA = GaugeZonesRing(
         zones: [GaugeZone(from: 0, to: 0.5, color: Colors.red)],
         width: 10,
       );
-      const zonesB = GaugeZonesSection(
+      const zonesB = GaugeZonesRing(
         zones: [GaugeZone(from: 0, to: 0.5, color: Colors.red)],
         width: 20,
       );
-      final zonesMid =
-          GaugeSection.lerp(zonesA, zonesB, 0.5) as GaugeZonesSection;
+      final zonesMid = GaugeRing.lerp(zonesA, zonesB, 0.5) as GaugeZonesRing;
       expect(zonesMid.width, 15);
 
       // Cross-type snaps to target
-      expect(GaugeSection.lerp(progressA, zonesA, 0.2), zonesA);
-      expect(GaugeSection.lerp(zonesA, progressA, 0.8), progressA);
+      expect(GaugeRing.lerp(progressA, zonesA, 0.2), zonesA);
+      expect(GaugeRing.lerp(zonesA, progressA, 0.8), progressA);
     });
 
-    test('GaugeZonesSection.copyWith with zones parameter', () {
-      const a = GaugeZonesSection(
+    test('GaugeZonesRing.copyWith with zones parameter', () {
+      const a = GaugeZonesRing(
         zones: [GaugeZone(from: 0, to: 0.5, color: Colors.red)],
         width: 10,
       );
@@ -318,131 +322,6 @@ void main() {
       expect(b.zones.length, 1);
       expect(b.zones.first.from, 0.1);
       expect(b.width, 10);
-    });
-
-    test('GaugeTicks equality test', () {
-      expect(
-        gaugeTicks1 ==
-            const GaugeTicks(
-              count: 4,
-              margin: 7,
-              position: GaugeTickPosition.center,
-              painter: GaugeTickCirclePainter(radius: 4, color: Colors.blue),
-            ),
-        true,
-      );
-
-      expect(
-        gaugeTicks1 ==
-            const GaugeTicks(
-              count: 4,
-              margin: 7,
-              position: GaugeTickPosition.center,
-              painter: GaugeTickCirclePainter(radius: 4, color: Colors.red),
-            ),
-        false,
-      );
-
-      expect(
-        gaugeTicks1 ==
-            const GaugeTicks(
-              count: 5,
-              margin: 7,
-              position: GaugeTickPosition.center,
-              painter: GaugeTickCirclePainter(radius: 4, color: Colors.blue),
-            ),
-        false,
-      );
-
-      expect(
-        gaugeTicks1 ==
-            const GaugeTicks(
-              count: 4,
-              margin: 8,
-              position: GaugeTickPosition.center,
-              painter: GaugeTickCirclePainter(radius: 4, color: Colors.blue),
-            ),
-        false,
-      );
-
-      expect(
-        gaugeTicks1 ==
-            const GaugeTicks(
-              count: 4,
-              margin: 7,
-              painter: GaugeTickCirclePainter(radius: 4, color: Colors.blue),
-            ),
-        false,
-      );
-    });
-
-    test('GaugeTicks.lerp null handling', () {
-      expect(GaugeTicks.lerp(null, null, 0.5), isNull);
-
-      const only = GaugeTicks(
-        count: 5,
-        painter: GaugeTickCirclePainter(color: Colors.red),
-      );
-      expect(GaugeTicks.lerp(null, only, 0.5), only);
-      expect(GaugeTicks.lerp(only, null, 0.5), isNull);
-
-      const a = GaugeTicks(
-        margin: 2,
-        painter: GaugeTickCirclePainter(radius: 2, color: Colors.red),
-      );
-      const b = GaugeTicks(
-        count: 7,
-        margin: 10,
-        painter: GaugeTickCirclePainter(radius: 6, color: Colors.blue),
-      );
-      final mid = GaugeTicks.lerp(a, b, 0.5)!;
-      expect(mid.count, 5);
-      expect(mid.margin, 6);
-      final painter = mid.painter as GaugeTickCirclePainter;
-      expect(painter.radius, 4);
-      expect(painter.color, Color.lerp(Colors.red, Colors.blue, 0.5));
-    });
-
-    test('GaugeTickCirclePainter equality, getSize, lerp', () {
-      const a = GaugeTickCirclePainter(color: Colors.red);
-      const b = GaugeTickCirclePainter(color: Colors.red);
-      const c = GaugeTickCirclePainter(radius: 5, color: Colors.red);
-
-      expect(a == b, true);
-      expect(a == c, false);
-
-      expect(a.getSize(), const Size.fromRadius(3));
-
-      final fallback = a.lerp(a, _OtherTickPainter(), 0.5);
-      expect(fallback, isA<_OtherTickPainter>());
-    });
-
-    test(
-      'GaugeTickCirclePainter.draw renders stroke when strokeWidth > 0',
-      () {
-        const painter = GaugeTickCirclePainter(
-          radius: 4,
-          color: Colors.red,
-          strokeWidth: 2,
-          strokeColor: Colors.blue,
-        );
-        final canvas = _RecordingCanvas();
-        painter.draw(canvas, const Offset(10, 10), 0);
-        expect(canvas.circles.length, 2);
-        expect(canvas.circles[0].paint.style, PaintingStyle.stroke);
-        expect(canvas.circles[0].paint.strokeWidth, 2);
-        expect(canvas.circles[0].radius, 5);
-        expect(canvas.circles[1].paint.style, PaintingStyle.fill);
-        expect(canvas.circles[1].radius, 4);
-      },
-    );
-
-    test('GaugeTickCirclePainter.draw skips stroke when strokeWidth == 0', () {
-      const painter = GaugeTickCirclePainter(radius: 4, color: Colors.red);
-      final canvas = _RecordingCanvas();
-      painter.draw(canvas, const Offset(10, 10), 0);
-      expect(canvas.circles.length, 1);
-      expect(canvas.circles[0].paint.style, PaintingStyle.fill);
     });
 
     test('GaugeTouchData equality test', () {
@@ -471,29 +350,23 @@ void main() {
       );
     });
 
-    test('GaugeTouchedSection equality test', () {
-      expect(gaugeTouchedSection1 == gaugeTouchedSectionClone1, true);
-      expect(gaugeTouchedSection1 == gaugeTouchedSection2, false);
-      expect(gaugeTouchedSection1 == gaugeTouchedSection3, false);
+    test('GaugeTouchedRing equality test', () {
+      expect(gaugeTouchedRing1 == gaugeTouchedRingClone1, true);
+      expect(gaugeTouchedRing1 == gaugeTouchedRing2, false);
+      expect(gaugeTouchedRing1 == gaugeTouchedRing3, false);
     });
 
     test('GaugeChartDataTween lerp', () {
       final a = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(
+        rings: const [
+          GaugeProgressRing(
             value: 0.2,
             color: MockData.color0,
             width: 5,
+            strokeCap: StrokeCap.round,
           ),
         ],
         startDegreeOffset: 0,
-        strokeCap: StrokeCap.round,
-        ticks: const GaugeTicks(
-          count: 5,
-          margin: 7,
-          position: GaugeTickPosition.center,
-          painter: GaugeTickCirclePainter(color: MockData.color0, radius: 7),
-        ),
         touchData: GaugeTouchData(
           touchCallback: (_, __) {},
           longPressDuration: const Duration(seconds: 7),
@@ -502,22 +375,16 @@ void main() {
       );
 
       final b = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(
+        rings: const [
+          GaugeProgressRing(
             value: 0.8,
             color: MockData.color2,
             width: 3,
+            strokeCap: StrokeCap.square,
           ),
         ],
         startDegreeOffset: 20,
         sweepAngle: 230,
-        strokeCap: StrokeCap.square,
-        ticks: const GaugeTicks(
-          count: 7,
-          margin: 9,
-          position: GaugeTickPosition.inner,
-          painter: GaugeTickCirclePainter(color: MockData.color2, radius: 5),
-        ),
         touchData: GaugeTouchData(
           touchCallback: (_, __) {},
           longPressDuration: const Duration(seconds: 7),
@@ -527,26 +394,20 @@ void main() {
 
       final data = GaugeChartDataTween(begin: a, end: b).lerp(0.5);
 
-      expect(data.sections.length, 1);
-      final lerped = data.sections.first as GaugeProgressSection;
+      expect(data.rings.length, 1);
+      final lerped = data.rings.first as GaugeProgressRing;
       expect(lerped.value, closeTo(0.5, 1e-9));
       expect(lerped.width, 4);
       expect(data.startDegreeOffset, 10);
       expect(data.sweepAngle, 250);
-      expect(data.strokeCap, StrokeCap.square);
-      expect(data.ticks?.count, 6);
-      expect(data.ticks?.margin, 8);
-      expect(data.ticks?.position, GaugeTickPosition.inner);
-      final tickPainter = data.ticks!.painter as GaugeTickCirclePainter;
-      expect(tickPainter.radius, 6);
-      expect(tickPainter.color, MockData.color1);
+      expect(lerped.strokeCap, StrokeCap.square);
       expect(data.gaugeTouchData, b.gaugeTouchData);
     });
 
     test('GaugeChartData.lerp throws on illegal state', () {
       final gauge = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 0.5, color: MockData.color0),
+        rings: const [
+          GaugeProgressRing(value: 0.5, color: MockData.color0),
         ],
         sweepAngle: 180,
       );
@@ -560,54 +421,21 @@ void main() {
     test('GaugeTouchResponse.copyWith', () {
       final response = GaugeTouchResponse(
         touchLocation: const Offset(10, 20),
-        touchedSection: gaugeTouchedSection1,
+        touchedRing: gaugeTouchedRing1,
       );
 
       final same = response.copyWith();
       expect(same.touchLocation, response.touchLocation);
-      expect(same.touchedSection, response.touchedSection);
+      expect(same.touchedRing, response.touchedRing);
 
       final updated = response.copyWith(
         touchLocation: const Offset(30, 40),
-        touchedSection: gaugeTouchedSection2,
+        touchedRing: gaugeTouchedRing2,
       );
       expect(updated.touchLocation, const Offset(30, 40));
-      expect(updated.touchedSection, gaugeTouchedSection2);
+      expect(updated.touchedRing, gaugeTouchedRing2);
     });
   });
-}
-
-class _OtherTickPainter extends GaugeTickPainter {
-  @override
-  void draw(Canvas canvas, Offset center, double angle) {}
-
-  @override
-  Size getSize() => Size.zero;
-
-  @override
-  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t) => b;
-
-  @override
-  List<Object?> get props => [];
-}
-
-class _RecordedCircle {
-  const _RecordedCircle(this.center, this.radius, this.paint);
-  final Offset center;
-  final double radius;
-  final Paint paint;
-}
-
-class _RecordingCanvas implements Canvas {
-  final List<_RecordedCircle> circles = <_RecordedCircle>[];
-
-  @override
-  void drawCircle(Offset c, double radius, Paint paint) {
-    circles.add(_RecordedCircle(c, radius, paint));
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => null;
 }
 
 class _DummyData extends BaseChartData {

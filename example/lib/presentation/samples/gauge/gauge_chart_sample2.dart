@@ -30,15 +30,6 @@ class GaugeChartSample2State extends State<GaugeChartSample2> {
                     AppColors.contentColorPurple.withValues(alpha: 0.2),
                 startDegreeOffset: -225,
                 sweepAngle: 270,
-                ticks: const GaugeTicks(
-                  count: 11,
-                  position: GaugeTickPosition.inner,
-                  margin: 5,
-                  painter: GaugeTickCirclePainter(
-                    radius: 5,
-                    color: AppColors.contentColorCyan,
-                  ),
-                ),
                 touchData: GaugeTouchData(enabled: true),
               ),
             ),

@@ -7,8 +7,8 @@ void main() {
   group('GaugeChart widget', () {
     testWidgets('builds with initial data and renders leaf', (tester) async {
       final data = GaugeChartData(
-        sections: const [
-          GaugeProgressSection(value: 0.4, color: Colors.red, width: 8),
+        rings: const [
+          GaugeProgressRing(value: 0.4, color: Colors.red, width: 8),
         ],
       );
 
@@ -30,15 +30,15 @@ void main() {
       'updates tween when data changes (implicit animation)',
       (tester) async {
         final dataA = GaugeChartData(
-          sections: const [
-            GaugeProgressSection(value: 0.2, color: Colors.red, width: 6),
+          rings: const [
+            GaugeProgressRing(value: 0.2, color: Colors.red, width: 6),
           ],
           sweepAngle: 180,
         );
 
         final dataB = GaugeChartData(
-          sections: const [
-            GaugeProgressSection(value: 0.8, color: Colors.blue, width: 10),
+          rings: const [
+            GaugeProgressRing(value: 0.8, color: Colors.blue, width: 10),
           ],
           startDegreeOffset: 30,
         );

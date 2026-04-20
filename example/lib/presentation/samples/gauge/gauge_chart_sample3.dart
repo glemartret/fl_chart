@@ -29,27 +29,29 @@ class GaugeChartSample3State extends State<GaugeChartSample3> {
               GaugeChartData(
                 startDegreeOffset: -225,
                 sweepAngle: 270,
-                strokeCap: StrokeCap.round,
-                defaultSectionWidth: 20,
-                sectionsSpace: 4,
-                sections: [
-                  GaugeProgressSection(
+                defaultRingWidth: 20,
+                ringsSpace: 4,
+                rings: [
+                  GaugeProgressRing(
                     value: _value,
                     color: AppColors.contentColorRed,
                     backgroundColor:
                         AppColors.contentColorRed.withValues(alpha: 0.2),
+                    strokeCap: StrokeCap.round,
                   ),
-                  GaugeProgressSection(
+                  GaugeProgressRing(
                     value: 0.45,
                     color: AppColors.contentColorGreen,
                     backgroundColor:
                         AppColors.contentColorGreen.withValues(alpha: 0.2),
+                    strokeCap: StrokeCap.round,
                   ),
-                  GaugeProgressSection(
+                  GaugeProgressRing(
                     value: 0.9,
                     color: AppColors.contentColorBlue,
                     backgroundColor:
                         AppColors.contentColorBlue.withValues(alpha: 0.2),
+                    strokeCap: StrokeCap.round,
                   ),
                 ],
                 touchData: GaugeTouchData(enabled: true),

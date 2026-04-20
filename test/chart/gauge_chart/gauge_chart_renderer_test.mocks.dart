@@ -1398,23 +1398,7 @@ class MockGaugeChartPainter extends _i1.Mock implements _i10.GaugeChartPainter {
       );
 
   @override
-  void drawTicks(
-    _i11.CanvasWrapper? canvasWrapper,
-    _i12.PaintHolder<_i13.GaugeChartData>? holder,
-  ) =>
-      super.noSuchMethod(
-        Invocation.method(
-          #drawTicks,
-          [
-            canvasWrapper,
-            holder,
-          ],
-        ),
-        returnValueForMissingStub: null,
-      );
-
-  @override
-  _i13.GaugeTouchedSection? handleTouch(
+  _i13.GaugeTouchedRing? handleTouch(
     _i2.Offset? touchedPoint,
     _i2.Size? viewSize,
     _i12.PaintHolder<_i13.GaugeChartData>? holder,
@@ -1426,5 +1410,5 @@ class MockGaugeChartPainter extends _i1.Mock implements _i10.GaugeChartPainter {
           viewSize,
           holder,
         ],
-      )) as _i13.GaugeTouchedSection?);
+      )) as _i13.GaugeTouchedRing?);
 }

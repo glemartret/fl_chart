@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:fl_chart/src/chart/base/base_chart/base_chart_painter.dart';
 import 'package:fl_chart/src/utils/canvas_wrapper.dart';
@@ -24,12 +22,11 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
   ) {
     super.paint(context, canvasWrapper, holder);
     drawSections(canvasWrapper, holder);
-    drawTicks(canvasWrapper, holder);
   }
 
-  /// Draws every ring. Dispatches on the concrete [GaugeSection] type
-  /// so progress rings (`GaugeProgressSection`) and zones rings
-  /// (`GaugeZonesSection`) paint with their own logic.
+  /// Draws every ring. Dispatches on the concrete [GaugeRing] type
+  /// so progress rings (`GaugeProgressRing`) and zones rings
+  /// (`GaugeZonesRing`) paint with their own logic.
   @visibleForTesting
   void drawSections(
     CanvasWrapper canvasWrapper,
@@ -37,18 +34,18 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
   ) {
     final data = holder.data;
     final strokeCenters = _sectionStrokeCenters(canvasWrapper.size, data);
-    for (var i = 0; i < data.sections.length; i++) {
-      final section = data.sections[i];
-      final width = data.resolveSectionWidth(section);
+    for (var i = 0; i < data.rings.length; i++) {
+      final ring = data.rings[i];
+      final width = data.resolveRingWidth(ring);
       final radius = strokeCenters[i];
       final rect =
           Rect.fromCircle(center: center(canvasWrapper.size), radius: radius);
 
-      switch (section) {
-        case GaugeProgressSection():
-          _drawProgressSection(canvasWrapper, data, section, rect, width);
-        case GaugeZonesSection():
-          _drawZonesSection(canvasWrapper, data, section, rect, width);
+      switch (ring) {
+        case GaugeProgressRing():
+          _drawProgressSection(canvasWrapper, data, ring, rect, width);
+        case GaugeZonesRing():
+          _drawZonesSection(canvasWrapper, data, ring, rect, width, radius);
       }
     }
   }
@@ -56,18 +53,18 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
   void _drawProgressSection(
     CanvasWrapper canvasWrapper,
     GaugeChartData data,
-    GaugeProgressSection section,
+    GaugeProgressRing ring,
     Rect rect,
     double width,
   ) {
     final signedSweep = _signedSweep(data);
     final range = data.maxValue - data.minValue;
 
-    if (section.backgroundColor != null) {
+    if (ring.backgroundColor != null) {
       _arcPaint
-        ..color = section.backgroundColor!
+        ..color = ring.backgroundColor!
         ..strokeWidth = width
-        ..strokeCap = data.strokeCap
+        ..strokeCap = ring.strokeCap
         ..style = PaintingStyle.stroke;
       canvasWrapper.drawArc(
         rect,
@@ -78,11 +75,11 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
       );
     }
 
-    final filledSweep = signedSweep * ((section.value - data.minValue) / range);
+    final filledSweep = signedSweep * ((ring.value - data.minValue) / range);
     _arcPaint
-      ..color = section.color
+      ..color = ring.color
       ..strokeWidth = width
-      ..strokeCap = data.strokeCap
+      ..strokeCap = ring.strokeCap
       ..style = PaintingStyle.stroke;
     canvasWrapper.drawArc(
       rect,
@@ -96,64 +93,52 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
   void _drawZonesSection(
     CanvasWrapper canvasWrapper,
     GaugeChartData data,
-    GaugeZonesSection section,
+    GaugeZonesRing ring,
     Rect rect,
     double width,
+    double strokeCenterRadius,
   ) {
     final dir = data.direction == GaugeDirection.clockwise ? 1 : -1;
     final degreesPerUnit = data.sweepAngle / (data.maxValue - data.minValue);
-    for (final zone in section.zones) {
+    // Convert px-along-arc spacing to a half-angle. zonesSpace is
+    // applied only between adjacent zones (by list order) — the first
+    // zone's leading edge and the last zone's trailing edge are not
+    // shrunk, so zones stay flush to the gauge's angular extremes.
+    final halfSpaceDeg =
+        Utils().degrees((ring.zonesSpace / 2) / strokeCenterRadius);
+    final lastIndex = ring.zones.length - 1;
+    for (var i = 0; i <= lastIndex; i++) {
+      final zone = ring.zones[i];
+      final leftShrink = i == 0 ? 0.0 : halfSpaceDeg;
+      final rightShrink = i == lastIndex ? 0.0 : halfSpaceDeg;
+      final rawSweepDeg = (zone.to - zone.from) * degreesPerUnit;
+      final sweepDeg = rawSweepDeg - leftShrink - rightShrink;
+      if (sweepDeg <= 0) continue;
       final startDeg = data.startDegreeOffset +
-          dir * (zone.from - data.minValue) * degreesPerUnit;
-      final sweepDeg = dir * (zone.to - zone.from) * degreesPerUnit;
+          dir * ((zone.from - data.minValue) * degreesPerUnit + leftShrink);
       _arcPaint
         ..color = zone.color
         ..strokeWidth = width
-        ..strokeCap = data.strokeCap
+        ..strokeCap = zone.strokeCap
         ..style = PaintingStyle.stroke;
       canvasWrapper.drawArc(
         rect,
         Utils().radians(startDeg),
-        Utils().radians(sweepDeg),
+        Utils().radians(dir * sweepDeg),
         false,
         _arcPaint,
       );
     }
   }
 
-  /// Draws tick marks around the gauge as a whole (not a specific ring).
-  @visibleForTesting
-  void drawTicks(
-    CanvasWrapper canvasWrapper,
-    PaintHolder<GaugeChartData> holder,
-  ) {
-    final data = holder.data;
-    final ticks = data.ticks;
-    if (ticks == null) return;
-
-    final size = canvasWrapper.size;
-    final c = center(size);
-    final dir = data.direction == GaugeDirection.clockwise ? 1 : -1;
-    final interTickDegrees = (dir * data.sweepAngle) / (ticks.count - 1);
-
-    final tickRadius = _tickRadius(size, data);
-    for (var i = 0; i < ticks.count; i++) {
-      final angleRad =
-          Utils().radians(data.startDegreeOffset + interTickDegrees * i);
-      final position =
-          c + Offset(math.cos(angleRad), math.sin(angleRad)) * tickRadius;
-      ticks.painter.draw(canvasWrapper.canvas, position, angleRad);
-    }
-  }
-
-  /// Returns a [GaugeTouchedSection] describing what the touch hit, or
+  /// Returns a [GaugeTouchedRing] describing what the touch hit, or
   /// null when the touch was entirely outside the gauge's angular range.
   ///
   /// When the touch is on-arc but falls in the gap between rings (or
-  /// outside every ring's radial band) the returned section has
-  /// [GaugeTouchedSection.touchedSectionIndex] == -1 while still carrying
-  /// a valid [GaugeTouchedSection.touchValue].
-  GaugeTouchedSection? handleTouch(
+  /// outside every ring's radial band) the returned ring has
+  /// [GaugeTouchedRing.touchedRingIndex] == -1 while still carrying
+  /// a valid [GaugeTouchedRing.touchValue].
+  GaugeTouchedRing? handleTouch(
     Offset touchedPoint,
     Size viewSize,
     PaintHolder<GaugeChartData> holder,
@@ -171,26 +156,26 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
     final touchValue = data.minValue + (along / data.sweepAngle) * range;
 
     final strokeCenters = _sectionStrokeCenters(viewSize, data);
-    for (var i = 0; i < data.sections.length; i++) {
-      final section = data.sections[i];
-      final width = data.resolveSectionWidth(section);
+    for (var i = 0; i < data.rings.length; i++) {
+      final ring = data.rings[i];
+      final width = data.resolveRingWidth(ring);
       if ((distance - strokeCenters[i]).abs() > width / 2) continue;
 
-      switch (section) {
-        case GaugeProgressSection():
-          return GaugeTouchedSection(
-            touchedSection: section,
-            touchedSectionIndex: i,
+      switch (ring) {
+        case GaugeProgressRing():
+          return GaugeTouchedRing(
+            touchedRing: ring,
+            touchedRingIndex: i,
             touchAngle: touchAngleDeg,
             touchRadius: distance,
             touchValue: touchValue,
-            isOnValue: touchValue <= section.value,
+            isOnValue: touchValue <= ring.value,
           );
-        case GaugeZonesSection():
+        case GaugeZonesRing():
           var zoneIndex = -1;
           GaugeZone? zone;
-          for (var j = 0; j < section.zones.length; j++) {
-            final z = section.zones[j];
+          for (var j = 0; j < ring.zones.length; j++) {
+            final z = ring.zones[j];
             if (touchValue >= z.from && touchValue <= z.to) {
               zoneIndex = j;
               zone = z;
@@ -198,9 +183,9 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
               // visually-topmost zone is the last match — keep iterating.
             }
           }
-          return GaugeTouchedSection(
-            touchedSection: section,
-            touchedSectionIndex: i,
+          return GaugeTouchedRing(
+            touchedRing: ring,
+            touchedRingIndex: i,
             touchAngle: touchAngleDeg,
             touchRadius: distance,
             touchValue: touchValue,
@@ -211,9 +196,9 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
       }
     }
 
-    return GaugeTouchedSection(
-      touchedSection: null,
-      touchedSectionIndex: -1,
+    return GaugeTouchedRing(
+      touchedRing: null,
+      touchedRingIndex: -1,
       touchAngle: touchAngleDeg,
       touchRadius: distance,
       touchValue: touchValue,
@@ -221,57 +206,34 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
     );
   }
 
-  /// Padding reserved outside the outermost ring for ticks drawn on the
-  /// outer position.
-  double _outerTickPadding(GaugeChartData data) {
-    final ticks = data.ticks;
-    if (ticks == null || ticks.position != GaugeTickPosition.outer) return 0;
-    return ticks.margin + ticks.painter.getSize().height / 2;
-  }
-
-  /// Outer radius available for the gauge's rings (excludes outer tick
-  /// padding).
-  double _outerArcRadius(Size viewSize, GaugeChartData data) =>
-      viewSize.shortestSide / 2 - _outerTickPadding(data);
+  /// Outer radius available for the gauge's rings.
+  double _outerArcRadius(Size viewSize) => viewSize.shortestSide / 2;
 
   /// Total radial thickness consumed by all rings plus the gaps between
   /// them.
   double _totalRingsDepth(GaugeChartData data) {
-    var depth = data.sectionsSpace * (data.sections.length - 1);
-    for (final section in data.sections) {
-      depth += data.resolveSectionWidth(section);
+    var depth = data.ringsSpace * (data.rings.length - 1);
+    for (final ring in data.rings) {
+      depth += data.resolveRingWidth(ring);
     }
     return depth;
   }
 
-  /// Stroke-centered radius per section, indexed to match
-  /// [GaugeChartData.sections]: entry 0 is the innermost ring, the last
+  /// Stroke-centered radius per ring, indexed to match
+  /// [GaugeChartData.rings]: entry 0 is the innermost ring, the last
   /// entry is the outermost.
   List<double> _sectionStrokeCenters(Size viewSize, GaugeChartData data) {
-    final outer = _outerArcRadius(viewSize, data);
+    final outer = _outerArcRadius(viewSize);
     final innerEdge = outer - _totalRingsDepth(data);
     final centers = <double>[];
     var currentInner = innerEdge;
-    for (var i = 0; i < data.sections.length; i++) {
-      if (i > 0) currentInner += data.sectionsSpace;
-      final width = data.resolveSectionWidth(data.sections[i]);
+    for (var i = 0; i < data.rings.length; i++) {
+      if (i > 0) currentInner += data.ringsSpace;
+      final width = data.resolveRingWidth(data.rings[i]);
       centers.add(currentInner + width / 2);
       currentInner += width;
     }
     return centers;
-  }
-
-  /// Where ticks are drawn radially, relative to the gauge's center.
-  double _tickRadius(Size viewSize, GaugeChartData data) {
-    final outer = _outerArcRadius(viewSize, data);
-    final inner = outer - _totalRingsDepth(data);
-    final ticks = data.ticks!;
-    final tickHalfSize = ticks.painter.getSize().height / 2;
-    return switch (ticks.position) {
-      GaugeTickPosition.outer => outer + ticks.margin + tickHalfSize,
-      GaugeTickPosition.inner => inner - ticks.margin - tickHalfSize,
-      GaugeTickPosition.center => (outer + inner) / 2,
-    };
   }
 
   double _signedSweep(GaugeChartData data) =>

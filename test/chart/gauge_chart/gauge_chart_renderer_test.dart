@@ -16,42 +16,30 @@ void main() {
   group('GaugeChartRenderer', () {
     GaugeChartData createData() {
       return GaugeChartData(
-        sections: const [
-          GaugeProgressSection(
+        rings: const [
+          GaugeProgressRing(
             value: 0.7,
             color: MockData.color0,
             width: 5,
             backgroundColor: MockData.color6,
+            strokeCap: StrokeCap.round,
           ),
         ],
-        strokeCap: StrokeCap.round,
-        ticks: const GaugeTicks(
-          margin: 5,
-          count: 5,
-          position: GaugeTickPosition.inner,
-          painter: GaugeTickCirclePainter(color: MockData.color0, radius: 4),
-        ),
       );
     }
 
     GaugeChartData createTargetData() {
       return GaugeChartData(
-        sections: const [
-          GaugeProgressSection(
+        rings: const [
+          GaugeProgressRing(
             value: 0.5,
             color: MockData.color1,
             width: 5,
             backgroundColor: MockData.color5,
+            strokeCap: StrokeCap.round,
           ),
         ],
         sweepAngle: 180,
-        strokeCap: StrokeCap.round,
-        ticks: const GaugeTicks(
-          margin: 10,
-          count: 30,
-          position: GaugeTickPosition.center,
-          painter: GaugeTickCirclePainter(color: MockData.color1, radius: 20),
-        ),
       );
     }
 
@@ -141,11 +129,11 @@ void main() {
           'size': inv.positionalArguments[1] as Size,
           'paint_holder': inv.positionalArguments[2] as PaintHolder,
         });
-        return gaugeTouchedSection1;
+        return gaugeTouchedRing1;
       });
       final touchResponse =
           renderGaugeChart.getResponseAtLocation(MockData.offset1);
-      expect(touchResponse.touchedSection, gaugeTouchedSection1);
+      expect(touchResponse.touchedRing, gaugeTouchedRing1);
       expect(results[0]['local_position'] as Offset, MockData.offset1);
       expect(results[0]['size'] as Size, mockSize);
       final paintHolder = results[0]['paint_holder'] as PaintHolder;

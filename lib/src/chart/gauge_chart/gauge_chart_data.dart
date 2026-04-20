@@ -8,53 +8,50 @@ import 'package:flutter/widgets.dart';
 /// [GaugeChart] needs this class to render itself.
 ///
 /// A gauge chart is a set of concentric rings drawn along a shared arc.
-/// Each [GaugeSection] is one ring on a scale shared by every section.
-/// Sections are stacked innermost-first in list order — so `sections[0]`
+/// Each [GaugeRing] is one ring on a scale shared by every ring.
+/// Sections are stacked innermost-first in list order — so `rings[0]`
 /// is the innermost ring and the last entry is the outermost — separated
-/// by [sectionsSpace] pixels.
+/// by [ringsSpace] pixels.
 ///
-/// A section is one of two shapes:
-/// - [GaugeProgressSection] — a ring filled from [minValue] up to its
+/// A ring is one of two shapes:
+/// - [GaugeProgressRing] — a ring filled from [minValue] up to its
 ///   `value`, with an optional `backgroundColor` behind.
-/// - [GaugeZonesSection] — a ring divided into fixed colored [GaugeZone]s
+/// - [GaugeZonesRing] — a ring divided into fixed colored [GaugeZone]s
 ///   (threshold bands). Useful for speedometer-style level indicators.
 class GaugeChartData extends BaseChartData with EquatableMixin {
   GaugeChartData({
-    required List<GaugeSection> sections,
+    required List<GaugeRing> rings,
     this.minValue = 0.0,
     this.maxValue = 1.0,
     this.startDegreeOffset = -225.0,
     this.sweepAngle = 270.0,
     this.direction = GaugeDirection.clockwise,
-    this.strokeCap = StrokeCap.butt,
-    this.defaultSectionWidth = 10.0,
-    this.sectionsSpace = 0.0,
-    this.ticks,
+    this.defaultRingWidth = 10.0,
+    this.ringsSpace = 0.0,
     GaugeTouchData? touchData,
     super.borderData,
-  })  : sections = List.unmodifiable(sections),
+  })  : rings = List.unmodifiable(rings),
         gaugeTouchData = touchData ?? GaugeTouchData(),
-        assert(sections.isNotEmpty, 'sections must not be empty'),
         assert(maxValue > minValue, 'maxValue must be greater than minValue'),
         assert(
           sweepAngle > 0 && sweepAngle <= 360,
           'sweepAngle must be in (0, 360]',
         ),
-        assert(sectionsSpace >= 0, 'sectionsSpace must be >= 0') {
-    for (final section in sections) {
-      switch (section) {
-        case GaugeProgressSection():
+        assert(ringsSpace >= 0, 'ringsSpace must be >= 0') {
+    for (final ring in rings) {
+      switch (ring) {
+        case GaugeProgressRing():
           assert(
-            section.value >= minValue && section.value <= maxValue,
-            'GaugeProgressSection.value ${section.value} is outside '
+            ring.value >= minValue && ring.value <= maxValue,
+            'GaugeProgressRing.value ${ring.value} is outside '
             '[$minValue, $maxValue]',
           );
-        case GaugeZonesSection():
+        case GaugeZonesRing():
           assert(
-            section.zones.isNotEmpty,
-            'GaugeZonesSection.zones must not be empty',
+            ring.zones.isNotEmpty,
+            'GaugeZonesRing.zones must not be empty',
           );
-          for (final zone in section.zones) {
+          for (final zone in ring.zones) {
             assert(
               zone.from >= minValue && zone.to <= maxValue,
               'GaugeZone [${zone.from}, ${zone.to}] is outside '
@@ -67,7 +64,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
 
   /// Convenience factory for the single-ring progress bar use case
   /// (battery meter, loading indicator, etc.). Shorthand for a
-  /// [GaugeChartData] with one [GaugeProgressSection].
+  /// [GaugeChartData] with one [GaugeProgressRing].
   factory GaugeChartData.progress({
     required double value,
     required Color color,
@@ -79,38 +76,38 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
     double startDegreeOffset = -225.0,
     double sweepAngle = 270.0,
     GaugeDirection direction = GaugeDirection.clockwise,
-    GaugeTicks? ticks,
     GaugeTouchData? touchData,
     FlBorderData? borderData,
   }) =>
       GaugeChartData(
         minValue: min,
         maxValue: max,
-        sections: [
-          GaugeProgressSection(
+        rings: [
+          GaugeProgressRing(
             value: value.clamp(min, max),
             color: color,
             width: width,
             backgroundColor: backgroundColor,
+            strokeCap: strokeCap,
           ),
         ],
-        defaultSectionWidth: width,
+        defaultRingWidth: width,
         startDegreeOffset: startDegreeOffset,
         sweepAngle: sweepAngle,
         direction: direction,
-        strokeCap: strokeCap,
-        ticks: ticks,
         touchData: touchData,
         borderData: borderData,
       );
 
   /// The rings drawn by the chart, innermost first.
-  final List<GaugeSection> sections;
+  final List<GaugeRing> rings;
 
-  /// Lower bound of the gauge scale (inclusive). Shared by every section.
+  /// Lower bound of the gauge scale (inclusive). Shared by every ring.
+  /// default is 0.0
   final double minValue;
 
-  /// Upper bound of the gauge scale (inclusive). Shared by every section.
+  /// Upper bound of the gauge scale (inclusive). Shared by every ring.
+  /// default is 1.0
   final double maxValue;
 
   /// Starting angle of the arc, in degrees. 0° points right, matching
@@ -124,68 +121,55 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
   /// [startDegreeOffset].
   final GaugeDirection direction;
 
-  /// Stroke cap applied to every arc (filled, background, and zone).
-  final StrokeCap strokeCap;
-
-  /// Width used for sections that don't specify their own
-  /// [GaugeSection.width].
-  final double defaultSectionWidth;
+  /// Width used for rings that don't specify their own
+  /// [GaugeRing.width].
+  final double defaultRingWidth;
 
   /// Radial gap in pixels between adjacent rings.
-  final double sectionsSpace;
-
-  /// Optional tick marks drawn along the gauge.
-  final GaugeTicks? ticks;
+  final double ringsSpace;
 
   /// Touch configuration and callback.
   final GaugeTouchData gaugeTouchData;
 
-  /// Resolves the width for [section], falling back to
-  /// [defaultSectionWidth] when the section doesn't specify one.
-  double resolveSectionWidth(GaugeSection section) =>
-      section.width ?? defaultSectionWidth;
+  /// Resolves the width for [ring], falling back to
+  /// [defaultRingWidth] when the ring doesn't specify one.
+  double resolveRingWidth(GaugeRing ring) => ring.width ?? defaultRingWidth;
 
   @override
   List<Object?> get props => [
-        sections,
+        rings,
         minValue,
         maxValue,
         startDegreeOffset,
         sweepAngle,
         direction,
-        strokeCap,
-        defaultSectionWidth,
-        sectionsSpace,
-        ticks,
+        defaultRingWidth,
+        ringsSpace,
         gaugeTouchData,
         borderData,
       ];
 
   GaugeChartData copyWith({
-    List<GaugeSection>? sections,
+    List<GaugeRing>? rings,
     double? minValue,
     double? maxValue,
     double? startDegreeOffset,
     double? sweepAngle,
     GaugeDirection? direction,
-    StrokeCap? strokeCap,
-    double? defaultSectionWidth,
-    double? sectionsSpace,
-    GaugeTicks? ticks,
+    double? defaultRingWidth,
+    double? ringsSpace,
     GaugeTouchData? touchData,
     FlBorderData? borderData,
   }) =>
       GaugeChartData(
-        sections: sections ?? this.sections,
+        rings: rings ?? this.rings,
         minValue: minValue ?? this.minValue,
         maxValue: maxValue ?? this.maxValue,
         startDegreeOffset: startDegreeOffset ?? this.startDegreeOffset,
         sweepAngle: sweepAngle ?? this.sweepAngle,
         direction: direction ?? this.direction,
-        strokeCap: strokeCap ?? this.strokeCap,
-        defaultSectionWidth: defaultSectionWidth ?? this.defaultSectionWidth,
-        sectionsSpace: sectionsSpace ?? this.sectionsSpace,
-        ticks: ticks ?? this.ticks,
+        defaultRingWidth: defaultRingWidth ?? this.defaultRingWidth,
+        ringsSpace: ringsSpace ?? this.ringsSpace,
         touchData: touchData ?? gaugeTouchData,
         borderData: borderData ?? this.borderData,
       );
@@ -194,18 +178,16 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
   GaugeChartData lerp(BaseChartData a, BaseChartData b, double t) {
     if (a is GaugeChartData && b is GaugeChartData) {
       return GaugeChartData(
-        sections: lerpGaugeSectionList(a.sections, b.sections, t)!,
+        rings: lerpGaugeRingList(a.rings, b.rings, t)!,
         minValue: lerpDouble(a.minValue, b.minValue, t)!,
         maxValue: lerpDouble(a.maxValue, b.maxValue, t)!,
         startDegreeOffset:
             lerpDouble(a.startDegreeOffset, b.startDegreeOffset, t)!,
         sweepAngle: lerpDouble(a.sweepAngle, b.sweepAngle, t)!,
         direction: b.direction,
-        strokeCap: b.strokeCap,
-        defaultSectionWidth:
-            lerpDouble(a.defaultSectionWidth, b.defaultSectionWidth, t)!,
-        sectionsSpace: lerpDouble(a.sectionsSpace, b.sectionsSpace, t)!,
-        ticks: GaugeTicks.lerp(a.ticks, b.ticks, t),
+        defaultRingWidth:
+            lerpDouble(a.defaultRingWidth, b.defaultRingWidth, t)!,
+        ringsSpace: lerpDouble(a.ringsSpace, b.ringsSpace, t)!,
         touchData: b.gaugeTouchData,
         borderData: FlBorderData.lerp(a.borderData, b.borderData, t),
       );
@@ -217,25 +199,25 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
 
 /// Base type for a single concentric ring of a [GaugeChartData].
 ///
-/// Sealed hierarchy — a ring is always either a [GaugeProgressSection]
-/// (filled up to a value) or a [GaugeZonesSection] (divided into fixed
+/// Sealed hierarchy — a ring is always either a [GaugeProgressRing]
+/// (filled up to a value) or a [GaugeZonesRing] (divided into fixed
 /// [GaugeZone]s). The [GaugeChartPainter] dispatches on the concrete
 /// type; the hierarchy is closed to ensure that never changes silently.
-sealed class GaugeSection with EquatableMixin {
-  const GaugeSection({this.width});
+sealed class GaugeRing with EquatableMixin {
+  const GaugeRing({this.width});
 
   /// Stroke width in pixels. If null,
-  /// [GaugeChartData.defaultSectionWidth] is used.
+  /// [GaugeChartData.defaultRingWidth] is used.
   final double? width;
 
-  /// Lerps this section against another. Cross-type lerps snap to [b]
+  /// Lerps this ring against another. Cross-type lerps snap to [b]
   /// (matches the [FlDotPainter.lerp] fallback pattern).
-  static GaugeSection lerp(GaugeSection a, GaugeSection b, double t) {
-    if (a is GaugeProgressSection && b is GaugeProgressSection) {
-      return GaugeProgressSection.lerp(a, b, t);
+  static GaugeRing lerp(GaugeRing a, GaugeRing b, double t) {
+    if (a is GaugeProgressRing && b is GaugeProgressRing) {
+      return GaugeProgressRing.lerp(a, b, t);
     }
-    if (a is GaugeZonesSection && b is GaugeZonesSection) {
-      return GaugeZonesSection.lerp(a, b, t);
+    if (a is GaugeZonesRing && b is GaugeZonesRing) {
+      return GaugeZonesRing.lerp(a, b, t);
     }
     return b;
   }
@@ -246,11 +228,12 @@ sealed class GaugeSection with EquatableMixin {
 /// The unfilled portion of the ring (from [value] to
 /// [GaugeChartData.maxValue]) is painted in [backgroundColor] when
 /// provided; otherwise it's left empty.
-final class GaugeProgressSection extends GaugeSection {
-  const GaugeProgressSection({
+final class GaugeProgressRing extends GaugeRing {
+  const GaugeProgressRing({
     required this.value,
     required this.color,
     this.backgroundColor,
+    this.strokeCap = StrokeCap.butt,
     super.width,
   }) : assert(width == null || width > 0, 'width must be > 0 when provided');
 
@@ -265,33 +248,41 @@ final class GaugeProgressSection extends GaugeSection {
   /// background is drawn for this ring.
   final Color? backgroundColor;
 
-  GaugeProgressSection copyWith({
+  /// Cap style applied to the ends of both the background and filled
+  /// arcs of this ring. For the typical battery-meter / progress-bar
+  /// look, use [StrokeCap.round].
+  final StrokeCap strokeCap;
+
+  GaugeProgressRing copyWith({
     double? value,
     Color? color,
     double? width,
     Color? backgroundColor,
+    StrokeCap? strokeCap,
   }) =>
-      GaugeProgressSection(
+      GaugeProgressRing(
         value: value ?? this.value,
         color: color ?? this.color,
         width: width ?? this.width,
         backgroundColor: backgroundColor ?? this.backgroundColor,
+        strokeCap: strokeCap ?? this.strokeCap,
       );
 
-  static GaugeProgressSection lerp(
-    GaugeProgressSection a,
-    GaugeProgressSection b,
+  static GaugeProgressRing lerp(
+    GaugeProgressRing a,
+    GaugeProgressRing b,
     double t,
   ) =>
-      GaugeProgressSection(
+      GaugeProgressRing(
         value: lerpDouble(a.value, b.value, t)!,
         color: Color.lerp(a.color, b.color, t)!,
         width: lerpDouble(a.width, b.width, t),
         backgroundColor: Color.lerp(a.backgroundColor, b.backgroundColor, t),
+        strokeCap: b.strokeCap,
       );
 
   @override
-  List<Object?> get props => [value, color, width, backgroundColor];
+  List<Object?> get props => [value, color, width, backgroundColor, strokeCap];
 }
 
 /// A ring displaying one or more fixed colored [GaugeZone]s along the
@@ -302,39 +293,61 @@ final class GaugeProgressSection extends GaugeSection {
 /// [GaugeChartData.maxValue] but not required to be sorted, contiguous,
 /// or non-overlapping. They're drawn in list order, so later zones paint
 /// on top of overlapping earlier ones.
-final class GaugeZonesSection extends GaugeSection {
-  const GaugeZonesSection({
+final class GaugeZonesRing extends GaugeRing {
+  const GaugeZonesRing({
     required this.zones,
+    this.zonesSpace = 0.0,
     super.width,
-  }) : assert(width == null || width > 0, 'width must be > 0 when provided');
+  })  : assert(width == null || width > 0, 'width must be > 0 when provided'),
+        assert(zonesSpace >= 0, 'zonesSpace must be >= 0');
 
-  /// The colored bands drawn along this ring's arc.
+  /// The colored bands drawn along this ring's arc. Each band controls
+  /// its own [GaugeZone.strokeCap].
   final List<GaugeZone> zones;
 
-  GaugeZonesSection copyWith({
+  /// Visible gap between adjacent zones, in pixels along this ring's
+  /// arc (measured at its stroke-center radius).
+  ///
+  /// Applied only *between* zones (in list order): each internal
+  /// boundary shrinks by `zonesSpace / 2` from the zones on either
+  /// side, leaving a `zonesSpace`-wide gap. The first zone's leading
+  /// edge and the last zone's trailing edge are not shrunk, so zones
+  /// stay flush to the gauge's angular extremes. Zones whose arc
+  /// collapses to zero or less are skipped.
+  ///
+  /// When using `StrokeCap.round` or `StrokeCap.square` on a zone, each
+  /// cap extends `width / 2` beyond the arc, so the effective visible
+  /// gap between two capped neighbors is `zonesSpace − width`. Set
+  /// `zonesSpace > width` to keep a visible gap when caps are rounded.
+  final double zonesSpace;
+
+  GaugeZonesRing copyWith({
     List<GaugeZone>? zones,
+    double? zonesSpace,
     double? width,
   }) =>
-      GaugeZonesSection(
+      GaugeZonesRing(
         zones: zones ?? this.zones,
+        zonesSpace: zonesSpace ?? this.zonesSpace,
         width: width ?? this.width,
       );
 
-  static GaugeZonesSection lerp(
-    GaugeZonesSection a,
-    GaugeZonesSection b,
+  static GaugeZonesRing lerp(
+    GaugeZonesRing a,
+    GaugeZonesRing b,
     double t,
   ) =>
-      GaugeZonesSection(
+      GaugeZonesRing(
         zones: lerpGaugeZoneList(a.zones, b.zones, t)!,
+        zonesSpace: lerpDouble(a.zonesSpace, b.zonesSpace, t)!,
         width: lerpDouble(a.width, b.width, t),
       );
 
   @override
-  List<Object?> get props => [zones, width];
+  List<Object?> get props => [zones, zonesSpace, width];
 }
 
-/// A single colored band within a [GaugeZonesSection]. [from] and [to]
+/// A single colored band within a [GaugeZonesRing]. [from] and [to]
 /// are positions on the shared [GaugeChartData.minValue] /
 /// [GaugeChartData.maxValue] scale; [to] must be `>= from`.
 @immutable
@@ -343,31 +356,40 @@ class GaugeZone with EquatableMixin {
     required this.from,
     required this.to,
     required this.color,
+    this.strokeCap = StrokeCap.butt,
   }) : assert(to >= from, 'to must be >= from');
 
   final double from;
   final double to;
   final Color color;
 
+  /// Cap style applied to this band's two ends. Independent per zone —
+  /// adjacent zones paint in list order, so a later zone's butt start
+  /// paints over an earlier zone's rounded end-cap bulge.
+  final StrokeCap strokeCap;
+
   GaugeZone copyWith({
     double? from,
     double? to,
     Color? color,
+    StrokeCap? strokeCap,
   }) =>
       GaugeZone(
         from: from ?? this.from,
         to: to ?? this.to,
         color: color ?? this.color,
+        strokeCap: strokeCap ?? this.strokeCap,
       );
 
   static GaugeZone lerp(GaugeZone a, GaugeZone b, double t) => GaugeZone(
         from: lerpDouble(a.from, b.from, t)!,
         to: lerpDouble(a.to, b.to, t)!,
         color: Color.lerp(a.color, b.color, t)!,
+        strokeCap: b.strokeCap,
       );
 
   @override
-  List<Object?> get props => [from, to, color];
+  List<Object?> get props => [from, to, color, strokeCap];
 }
 
 /// It lerps a [GaugeChartData] to another [GaugeChartData] (handles
@@ -387,141 +409,6 @@ class GaugeChartDataTween extends Tween<GaugeChartData> {
 enum GaugeDirection {
   clockwise,
   counterClockwise,
-}
-
-/// Position of a tick mark relative to the gauge's overall outer/inner
-/// radial bounds.
-enum GaugeTickPosition {
-  /// Inside the innermost ring.
-  inner,
-
-  /// Outside the outermost ring.
-  outer,
-
-  /// Radially centered on the gauge's rings as a group.
-  center,
-}
-
-/// Configuration for the ticks drawn along a [GaugeChartData]'s arc.
-///
-/// Ticks frame the gauge as a whole (outer edge of the outermost ring
-/// to inner edge of the innermost ring), not an individual section.
-@immutable
-class GaugeTicks with EquatableMixin {
-  const GaugeTicks({
-    this.count = 3,
-    this.position = GaugeTickPosition.outer,
-    this.margin = 3,
-    this.painter = const GaugeTickCirclePainter(),
-  }) : assert(count >= 2, 'count should be >= 2');
-
-  /// Number of ticks drawn, including the arc's endpoints. Minimum 2.
-  final int count;
-
-  /// Where ticks sit relative to the gauge's outer/inner bounds.
-  final GaugeTickPosition position;
-
-  /// Distance in pixels between the nearest ring edge and the tick.
-  final double margin;
-
-  /// Painter used to render each tick. Defaults to
-  /// [GaugeTickCirclePainter].
-  final GaugeTickPainter painter;
-
-  @override
-  List<Object?> get props => [count, position, margin, painter];
-
-  static GaugeTicks? lerp(GaugeTicks? a, GaugeTicks? b, double t) {
-    if (a == null || b == null) return b;
-    return GaugeTicks(
-      count: lerpInt(a.count, b.count, t),
-      position: b.position,
-      margin: lerpDouble(a.margin, b.margin, t)!,
-      painter: a.painter.lerp(a.painter, b.painter, t),
-    );
-  }
-}
-
-/// Interface for rendering individual tick marks on a [GaugeChart].
-///
-/// Mirrors the [FlDotPainter] / [FlDotCirclePainter] pattern used by
-/// [LineChart].
-abstract class GaugeTickPainter with EquatableMixin {
-  const GaugeTickPainter();
-
-  /// Draws a single tick. [center] is the tick's center in canvas
-  /// coordinates, [angle] is the tangent angle in radians.
-  void draw(Canvas canvas, Offset center, double angle);
-
-  /// Returns the painted size of a tick.
-  Size getSize();
-
-  /// Lerps between two painter configurations; falls back to [b] when
-  /// the types differ.
-  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t);
-}
-
-/// Default [GaugeTickPainter] implementation: draws each tick as a
-/// filled circle, optionally with a stroked outline.
-class GaugeTickCirclePainter extends GaugeTickPainter {
-  const GaugeTickCirclePainter({
-    this.radius = 3.0,
-    this.color = const Color(0xFF000000),
-    this.strokeWidth = 0.0,
-    this.strokeColor = const Color(0xFF000000),
-  }) : assert(radius > 0, 'radius should be > 0');
-
-  final double radius;
-  final Color color;
-  final double strokeWidth;
-  final Color strokeColor;
-
-  @override
-  void draw(Canvas canvas, Offset center, double angle) {
-    if (strokeWidth > 0 && strokeColor.a != 0) {
-      canvas.drawCircle(
-        center,
-        radius + strokeWidth / 2,
-        Paint()
-          ..color = strokeColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeWidth,
-      );
-    }
-    canvas.drawCircle(
-      center,
-      radius,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.fill,
-    );
-  }
-
-  @override
-  Size getSize() => Size.fromRadius(radius + strokeWidth);
-
-  GaugeTickCirclePainter _lerp(
-    GaugeTickCirclePainter a,
-    GaugeTickCirclePainter b,
-    double t,
-  ) =>
-      GaugeTickCirclePainter(
-        radius: lerpDouble(a.radius, b.radius, t)!,
-        color: Color.lerp(a.color, b.color, t)!,
-        strokeWidth: lerpDouble(a.strokeWidth, b.strokeWidth, t)!,
-        strokeColor: Color.lerp(a.strokeColor, b.strokeColor, t)!,
-      );
-
-  @override
-  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t) {
-    if (a is! GaugeTickCirclePainter || b is! GaugeTickCirclePainter) {
-      return b;
-    }
-    return _lerp(a, b, t);
-  }
-
-  @override
-  List<Object?> get props => [radius, color, strokeWidth, strokeColor];
 }
 
 class GaugeTouchData extends FlTouchData<GaugeTouchResponse>
@@ -550,22 +437,22 @@ class GaugeTouchData extends FlTouchData<GaugeTouchResponse>
 /// Describes the state of a touch on a [GaugeChart].
 ///
 /// A touch inside the arc's angular range always produces a
-/// [GaugeTouchedSection] — even when it falls in the gap between rings
-/// (`sectionsSpace`) or outside every ring's radial band. In those
-/// cases [touchedSection] is null and [touchedSectionIndex] is -1, but
+/// [GaugeTouchedRing] — even when it falls in the gap between rings
+/// (`ringsSpace`) or outside every ring's radial band. In those
+/// cases [touchedRing] is null and [touchedRingIndex] is -1, but
 /// [touchValue] is still filled in. Touches entirely outside the
-/// angular range produce null [GaugeTouchResponse.touchedSection].
+/// angular range produce null [GaugeTouchResponse.touchedRing].
 ///
-/// When the hit ring is a [GaugeZonesSection], [touchedZone] and
+/// When the hit ring is a [GaugeZonesRing], [touchedZone] and
 /// [touchedZoneIndex] are populated with the specific band that
-/// contains the touch angle. For a [GaugeProgressSection], [isOnValue]
+/// contains the touch angle. For a [GaugeProgressRing], [isOnValue]
 /// tells you whether the touch sits on the filled portion (`touchValue
-/// <= section.value`) or the background.
+/// <= ring.value`) or the background.
 @immutable
-class GaugeTouchedSection with EquatableMixin {
-  const GaugeTouchedSection({
-    required this.touchedSection,
-    required this.touchedSectionIndex,
+class GaugeTouchedRing with EquatableMixin {
+  const GaugeTouchedRing({
+    required this.touchedRing,
+    required this.touchedRingIndex,
     required this.touchAngle,
     required this.touchRadius,
     required this.touchValue,
@@ -576,11 +463,11 @@ class GaugeTouchedSection with EquatableMixin {
 
   /// The ring that was touched, or null if the touch fell between /
   /// outside rings.
-  final GaugeSection? touchedSection;
+  final GaugeRing? touchedRing;
 
-  /// Index of the touched ring in [GaugeChartData.sections], or -1 if
+  /// Index of the touched ring in [GaugeChartData.rings], or -1 if
   /// no ring was hit.
-  final int touchedSectionIndex;
+  final int touchedRingIndex;
 
   /// Angle of the touch in degrees, using the same convention as
   /// [GaugeChartData.startDegreeOffset] (0° points right).
@@ -593,14 +480,14 @@ class GaugeTouchedSection with EquatableMixin {
   /// [[GaugeChartData.minValue], [GaugeChartData.maxValue]].
   final double touchValue;
 
-  /// True when a [GaugeProgressSection] was hit AND the touch sits on
-  /// its filled portion (`touchValue <= section.value`). False
-  /// otherwise, including for [GaugeZonesSection] hits and misses.
+  /// True when a [GaugeProgressRing] was hit AND the touch sits on
+  /// its filled portion (`touchValue <= ring.value`). False
+  /// otherwise, including for [GaugeZonesRing] hits and misses.
   final bool isOnValue;
 
   /// The zone that was touched when the hit ring is a
-  /// [GaugeZonesSection] and the touch angle falls inside one of its
-  /// zones. Null for progress-section hits and for touches in gaps
+  /// [GaugeZonesRing] and the touch angle falls inside one of its
+  /// zones. Null for progress-ring hits and for touches in gaps
   /// between zones.
   final GaugeZone? touchedZone;
 
@@ -609,8 +496,8 @@ class GaugeTouchedSection with EquatableMixin {
 
   @override
   List<Object?> get props => [
-        touchedSection,
-        touchedSectionIndex,
+        touchedRing,
+        touchedRingIndex,
         touchAngle,
         touchRadius,
         touchValue,
@@ -623,19 +510,19 @@ class GaugeTouchedSection with EquatableMixin {
 class GaugeTouchResponse extends BaseTouchResponse {
   GaugeTouchResponse({
     required super.touchLocation,
-    required this.touchedSection,
+    required this.touchedRing,
   });
 
   /// Details of the touch, or null if the touch fell entirely outside
   /// the arc's angular range.
-  final GaugeTouchedSection? touchedSection;
+  final GaugeTouchedRing? touchedRing;
 
   GaugeTouchResponse copyWith({
     Offset? touchLocation,
-    GaugeTouchedSection? touchedSection,
+    GaugeTouchedRing? touchedRing,
   }) =>
       GaugeTouchResponse(
         touchLocation: touchLocation ?? this.touchLocation,
-        touchedSection: touchedSection ?? this.touchedSection,
+        touchedRing: touchedRing ?? this.touchedRing,
       );
 }

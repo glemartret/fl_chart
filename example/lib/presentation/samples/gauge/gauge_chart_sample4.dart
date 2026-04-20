@@ -1,10 +1,10 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-/// Speedometer-style gauge combining two section types:
-/// - an inner [GaugeProgressSection] showing the current measurement
+/// Speedometer-style gauge combining two ring types:
+/// - an inner [GaugeProgressRing] showing the current measurement
 ///   (350..value filled green, rest greyed out)
-/// - an outer [GaugeZonesSection] painting fixed threshold bands
+/// - an outer [GaugeZonesRing] painting fixed threshold bands
 ///   (350-600 red, 600-700 amber, 700-800 light green, 800-850 green)
 ///
 /// Touching the gauge reports which ring was hit and, for the zones
@@ -38,39 +38,66 @@ class GaugeChartSample4State extends State<GaugeChartSample4> {
                 maxValue: _maxValue,
                 startDegreeOffset: 180,
                 sweepAngle: 180,
-                sectionsSpace: 4,
-                strokeCap: StrokeCap.round,
-                sections: [
-                  GaugeProgressSection(
+                ringsSpace: 4,
+                rings: [
+                  // Inner ring — measurement, rounded tip looks good
+                  GaugeProgressRing(
                     value: _value,
                     color: Colors.green.shade300,
                     backgroundColor: Colors.grey.shade300,
                     width: 30,
+                    strokeCap: StrokeCap.round,
                   ),
-                  const GaugeZonesSection(
+                  // Outer ring — rounded zones separated by a visible
+                  // gap. zonesSpace is pixels along the arc, uniformly
+                  // deducted from both ends of each zone. With round
+                  // caps each cap extends width/2 beyond the arc, so
+                  // effective visible gap ≈ zonesSpace - width.
+                  const GaugeZonesRing(
                     width: 10,
+                    zonesSpace: 16,
                     zones: [
-                      GaugeZone(from: 350, to: 600, color: Colors.redAccent),
-                      GaugeZone(from: 600, to: 700, color: Colors.amber),
-                      GaugeZone(from: 700, to: 800, color: Colors.lightGreen),
-                      GaugeZone(from: 800, to: 850, color: Colors.green),
+                      GaugeZone(
+                        from: 350,
+                        to: 600,
+                        color: Colors.redAccent,
+                        strokeCap: StrokeCap.round,
+                      ),
+                      GaugeZone(
+                        from: 600,
+                        to: 700,
+                        color: Colors.amber,
+                        strokeCap: StrokeCap.round,
+                      ),
+                      GaugeZone(
+                        from: 700,
+                        to: 800,
+                        color: Colors.lightGreen,
+                        strokeCap: StrokeCap.round,
+                      ),
+                      GaugeZone(
+                        from: 800,
+                        to: 850,
+                        color: Colors.green,
+                        strokeCap: StrokeCap.round,
+                      ),
                     ],
                   ),
                 ],
                 touchData: GaugeTouchData(
                   enabled: true,
                   touchCallback: (_, response) => setState(() {
-                    final s = response?.touchedSection;
-                    if (s == null || s.touchedSection == null) {
+                    final s = response?.touchedRing;
+                    if (s == null || s.touchedRing == null) {
                       _touchLabel = 'Outside the gauge';
                       return;
                     }
                     final value = s.touchValue.toStringAsFixed(0);
-                    switch (s.touchedSection) {
-                      case GaugeProgressSection():
+                    switch (s.touchedRing) {
+                      case GaugeProgressRing():
                         _touchLabel =
                             'Progress ring @ $value ${s.isOnValue ? '(filled)' : '(background)'}';
-                      case GaugeZonesSection():
+                      case GaugeZonesRing():
                         final zone = s.touchedZone;
                         _touchLabel = zone == null
                             ? 'Zones ring @ $value (gap)'
