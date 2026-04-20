@@ -1432,6 +1432,84 @@ class MockPieChartPainter extends _i1.Mock implements _i11.PieChartPainter {
       );
 
   @override
+  void drawSegments(
+    _i12.CanvasWrapper? canvasWrapper,
+    _i7.PieChartSectionData? section,
+    _i2.Path? mainPath,
+    double? sweepAngle,
+    double? startRadius,
+    double? startAngle,
+    _i2.Offset? center,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #drawSegments,
+          [
+            canvasWrapper,
+            section,
+            mainPath,
+            sweepAngle,
+            startRadius,
+            startAngle,
+            center,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void drawSegment(
+    _i7.PieChartStackSegmentData? segment,
+    _i2.Path? segmentPath,
+    _i12.CanvasWrapper? canvasWrapper,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #drawSegment,
+          [
+            segment,
+            segmentPath,
+            canvasWrapper,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i2.Path generateSegmentPath(
+    _i2.Offset? center,
+    double? innerRadius,
+    double? segmentRadius,
+    double? startAngle,
+    double? sweepAngle,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #generateSegmentPath,
+          [
+            center,
+            innerRadius,
+            segmentRadius,
+            startAngle,
+            sweepAngle,
+          ],
+        ),
+        returnValue: _FakePath_9(
+          this,
+          Invocation.method(
+            #generateSegmentPath,
+            [
+              center,
+              innerRadius,
+              segmentRadius,
+              startAngle,
+              sweepAngle,
+            ],
+          ),
+        ),
+      ) as _i2.Path);
+
+  @override
   _i2.Path generateSectionPath(
     _i7.PieChartSectionData? section,
     double? sectionSpace,
@@ -1469,6 +1547,46 @@ class MockPieChartPainter extends _i1.Mock implements _i11.PieChartPainter {
       ) as _i2.Path);
 
   @override
+  _i2.Path generateRoundedSectionPath(
+    _i7.PieChartSectionData? section,
+    double? startRadians,
+    double? sweepRadians,
+    _i2.Offset? center,
+    double? centerRadius,
+    _i2.Rect? sectionRadiusRect,
+    _i2.Rect? centerRadiusRect,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #generateRoundedSectionPath,
+          [
+            section,
+            startRadians,
+            sweepRadians,
+            center,
+            centerRadius,
+            sectionRadiusRect,
+            centerRadiusRect,
+          ],
+        ),
+        returnValue: _FakePath_9(
+          this,
+          Invocation.method(
+            #generateRoundedSectionPath,
+            [
+              section,
+              startRadians,
+              sweepRadians,
+              center,
+              centerRadius,
+              sectionRadiusRect,
+              centerRadiusRect,
+            ],
+          ),
+        ),
+      ) as _i2.Path);
+
+  @override
   _i2.Path createRectPathAroundLine(
     _i14.Line? line,
     double? width,
@@ -1492,24 +1610,6 @@ class MockPieChartPainter extends _i1.Mock implements _i11.PieChartPainter {
           ),
         ),
       ) as _i2.Path);
-
-  @override
-  void drawSection(
-    _i7.PieChartSectionData? section,
-    _i2.Path? sectionPath,
-    _i12.CanvasWrapper? canvasWrapper,
-  ) =>
-      super.noSuchMethod(
-        Invocation.method(
-          #drawSection,
-          [
-            section,
-            sectionPath,
-            canvasWrapper,
-          ],
-        ),
-        returnValueForMissingStub: null,
-      );
 
   @override
   void drawSectionStroke(
