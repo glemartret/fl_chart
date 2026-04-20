@@ -18,7 +18,7 @@ class GaugeChartSample4 extends StatefulWidget {
 }
 
 class GaugeChartSample4State extends State<GaugeChartSample4> {
-  double _value = 370;
+  double _value = 717;
 
   static const _minValue = 350.0;
   static const _maxValue = 850.0;
