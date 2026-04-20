@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart_app/presentation/resources/app_colors.dart';
 import 'package:flutter/material.dart';
 
 /// Speedometer-style gauge combining two ring types:
@@ -18,13 +19,20 @@ class GaugeChartSample4 extends StatefulWidget {
 
 class GaugeChartSample4State extends State<GaugeChartSample4> {
   double _value = 370;
-  String _touchLabel = 'Touch the gauge to read a value';
 
   static const _minValue = 350.0;
   static const _maxValue = 850.0;
 
+  static const _colorRanges = <(double to, Color color)>[
+    (550, AppColors.contentColorRed),
+    (700, AppColors.contentColorYellow),
+    (850, AppColors.contentColorGreen),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    Color barColor = _colorRanges.firstWhere((e) => _value <= e.$1).$2;
+
     return Padding(
       padding: const EdgeInsets.all(28),
       child: Column(
@@ -38,13 +46,13 @@ class GaugeChartSample4State extends State<GaugeChartSample4> {
                 maxValue: _maxValue,
                 startDegreeOffset: 180,
                 sweepAngle: 180,
-                ringsSpace: 4,
+                ringsSpace: 6,
                 rings: [
                   // Inner ring — measurement, rounded tip looks good
                   GaugeProgressRing(
                     value: _value,
-                    color: Colors.green.shade300,
-                    backgroundColor: Colors.grey.shade300,
+                    color: barColor,
+                    backgroundColor: AppColors.contentColorWhite12,
                     width: 30,
                     strokeCap: StrokeCap.round,
                   ),
@@ -53,60 +61,23 @@ class GaugeChartSample4State extends State<GaugeChartSample4> {
                   // deducted from both ends of each zone. With round
                   // caps each cap extends width/2 beyond the arc, so
                   // effective visible gap ≈ zonesSpace - width.
-                  const GaugeZonesRing(
-                    width: 10,
+                  GaugeZonesRing(
+                    width: 8,
                     zonesSpace: 16,
-                    zones: [
-                      GaugeZone(
-                        from: 350,
-                        to: 600,
-                        color: Colors.redAccent,
+                    zones: _colorRanges.asMap().entries.map((e) {
+                      final index = e.key;
+                      final to = e.value.$1;
+                      final color = e.value.$2;
+                      final from = index == 0 ? 350.0 : _colorRanges[index - 1].$1;
+                      return GaugeZone(
+                        from: from,
+                        to: to,
+                        color: color,
                         strokeCap: StrokeCap.round,
-                      ),
-                      GaugeZone(
-                        from: 600,
-                        to: 700,
-                        color: Colors.amber,
-                        strokeCap: StrokeCap.round,
-                      ),
-                      GaugeZone(
-                        from: 700,
-                        to: 800,
-                        color: Colors.lightGreen,
-                        strokeCap: StrokeCap.round,
-                      ),
-                      GaugeZone(
-                        from: 800,
-                        to: 850,
-                        color: Colors.green,
-                        strokeCap: StrokeCap.round,
-                      ),
-                    ],
+                      );
+                    }).toList(),
                   ),
                 ],
-                touchData: GaugeTouchData(
-                  enabled: true,
-                  touchCallback: (_, response) => setState(() {
-                    final s = response?.touchedRing;
-                    if (s == null || s.touchedRing == null) {
-                      _touchLabel = 'Outside the gauge';
-                      return;
-                    }
-                    final value = s.touchValue.toStringAsFixed(0);
-                    switch (s.touchedRing) {
-                      case GaugeProgressRing():
-                        _touchLabel =
-                            'Progress ring @ $value ${s.isOnValue ? '(filled)' : '(background)'}';
-                      case GaugeZonesRing():
-                        final zone = s.touchedZone;
-                        _touchLabel = zone == null
-                            ? 'Zones ring @ $value (gap)'
-                            : 'Zones ring @ $value — band ${zone.from.toStringAsFixed(0)}..${zone.to.toStringAsFixed(0)}';
-                      case null:
-                        _touchLabel = 'Outside the gauge';
-                    }
-                  }),
-                ),
               ),
             ),
           ),
@@ -114,7 +85,7 @@ class GaugeChartSample4State extends State<GaugeChartSample4> {
           Center(
             child: Text(
               _value.toStringAsFixed(0),
-              style: Theme.of(context).textTheme.headlineMedium,
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
           ),
           Slider(
@@ -122,11 +93,6 @@ class GaugeChartSample4State extends State<GaugeChartSample4> {
             min: _minValue,
             max: _maxValue,
             onChanged: (v) => setState(() => _value = v),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _touchLabel,
-            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),
