@@ -29,6 +29,9 @@ void main() {
     when(mockUtils.degrees(any)).thenAnswer(
       (inv) => inv.positionalArguments[0] as double,
     );
+    when(mockUtils.getThemeAwareTextStyle(any, any)).thenAnswer(
+      (inv) => (inv.positionalArguments[1] as TextStyle?) ?? const TextStyle(),
+    );
     return mockUtils;
   }
 
@@ -408,9 +411,11 @@ void main() {
       );
       expect(hitOuter!.touchedRingIndex, 1);
 
-      // Touch in the gap between rings (radius 188 → neither ring).
+      // Touch far inside the gauge (radius 50) — on-arc angularly but
+      // outside every ring's radial band, even after the threshold
+      // extension.
       final miss = gaugePainter.handleTouch(
-        center + const Offset(188, 0),
+        center + const Offset(50, 0),
         viewSize,
         holder,
       );
@@ -674,6 +679,252 @@ void main() {
       // But no zone contains value 50
       expect(hit.touchedZone, isNull);
       expect(hit.touchedZoneIndex, -1);
+      Utils.changeInstance(utilsMainInstance);
+    });
+  });
+
+  group('drawTicks()', () {
+    test('no-op when ticks is null', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        sweepAngle: 90,
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      gaugePainter.drawTicks(MockBuildContext(), mockCanvasWrapper, holder);
+
+      verifyNever(mockCanvasWrapper.save());
+      verifyNever(mockCanvasWrapper.translate(any, any));
+      verifyNever(mockCanvasWrapper.rotate(any));
+      verifyNever(mockCanvasWrapper.drawText(any, any));
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test('draws one save+translate+rotate+restore per tick and calls painter',
+        () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 90,
+        ticks: const GaugeTicks(
+          count: 5,
+        ),
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final rotations = <double>[];
+      when(mockCanvasWrapper.rotate(captureAny)).thenAnswer((inv) {
+        rotations.add(inv.positionalArguments[0] as double);
+      });
+
+      gaugePainter.drawTicks(MockBuildContext(), mockCanvasWrapper, holder);
+
+      // Save / restore wraps every tick's transform.
+      verify(mockCanvasWrapper.save()).called(5);
+      verify(mockCanvasWrapper.restore()).called(5);
+      verify(mockCanvasWrapper.translate(any, any)).called(5);
+      // Evenly spaced rotations from 0° to 90° (identity mock → degrees).
+      expect(rotations.length, 5);
+      expect(rotations[0], 0);
+      expect(rotations[1], closeTo(22.5, 1e-9));
+      expect(rotations[2], closeTo(45, 1e-9));
+      expect(rotations[3], closeTo(67.5, 1e-9));
+      expect(rotations[4], closeTo(90, 1e-9));
+      // No labels configured → no drawText.
+      verifyNever(mockCanvasWrapper.drawText(any, any));
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test('inner position adds π to rotation so +x points toward center', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 90,
+        ticks: const GaugeTicks(
+          count: 2,
+          position: GaugeTickPosition.inner,
+        ),
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final rotations = <double>[];
+      when(mockCanvasWrapper.rotate(captureAny)).thenAnswer((inv) {
+        rotations.add(inv.positionalArguments[0] as double);
+      });
+
+      gaugePainter.drawTicks(MockBuildContext(), mockCanvasWrapper, holder);
+
+      // Identity mock means `rotate` received a radian-value-identical-to-
+      // the-degree; we just want to see the +π offset.
+      expect(rotations.length, 2);
+      expect(rotations[0], closeTo(pi, 1e-9));
+      expect(rotations[1], closeTo(90 + pi, 1e-9));
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test('labelBuilder + labelStyle paints text at each tick', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 90,
+        maxValue: 100,
+        ticks: GaugeTicks(
+          painter: const GaugeTickLinePainter(length: 4, thickness: 1),
+          labelBuilder: (v) => v.toStringAsFixed(0),
+          labelStyle: const TextStyle(fontSize: 10),
+        ),
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final labels = <String>[];
+      when(mockCanvasWrapper.drawText(captureAny, captureAny))
+          .thenAnswer((inv) {
+        final tp = inv.positionalArguments[0] as TextPainter;
+        labels.add((tp.text! as TextSpan).text!);
+      });
+
+      gaugePainter.drawTicks(MockBuildContext(), mockCanvasWrapper, holder);
+
+      // 3 ticks across minValue=0, maxValue=100 → "0", "50", "100".
+      expect(labels, ['0', '50', '100']);
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test('GaugeTicks.hideEndpoints skips first and last ticks + labels', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        maxValue: 100,
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 90,
+        ticks: GaugeTicks(
+          count: 5,
+          checkToShowTick: GaugeTicks.hideEndpoints,
+          labelBuilder: (v) => v.toStringAsFixed(0),
+          labelStyle: const TextStyle(fontSize: 10),
+        ),
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final labels = <String>[];
+      when(mockCanvasWrapper.drawText(captureAny, captureAny))
+          .thenAnswer((inv) {
+        final tp = inv.positionalArguments[0] as TextPainter;
+        labels.add((tp.text! as TextSpan).text!);
+      });
+
+      gaugePainter.drawTicks(MockBuildContext(), mockCanvasWrapper, holder);
+
+      // 5 ticks total; endpoints (0 and 100) skipped, 3 interior draw.
+      verify(mockCanvasWrapper.save()).called(3);
+      verify(mockCanvasWrapper.restore()).called(3);
+      expect(labels, ['25', '50', '75']);
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test(
+        'CheckToShowGaugeTick receives index, count, value, min/max and can '
+        'hide arbitrary ticks', () {
+      const viewSize = Size(400, 400);
+      final captured = <CheckToShowGaugeTickInfo>[];
+      final data = GaugeChartData(
+        maxValue: 100,
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 90,
+        ticks: GaugeTicks(
+          checkToShowTick: (info) {
+            captured.add(info);
+            // Hide only the middle tick.
+            return info.index != 1;
+          },
+          labelBuilder: (v) => v.toStringAsFixed(0),
+          labelStyle: const TextStyle(fontSize: 10),
+        ),
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final labels = <String>[];
+      when(mockCanvasWrapper.drawText(captureAny, captureAny))
+          .thenAnswer((inv) {
+        final tp = inv.positionalArguments[0] as TextPainter;
+        labels.add((tp.text! as TextSpan).text!);
+      });
+
+      gaugePainter.drawTicks(MockBuildContext(), mockCanvasWrapper, holder);
+
+      // Callback invoked once per tick, carrying full info.
+      expect(captured.length, 3);
+      expect(captured[0].index, 0);
+      expect(captured[0].value, 0);
+      expect(captured[0].minValue, 0);
+      expect(captured[0].maxValue, 100);
+      expect(captured[0].count, 3);
+      expect(captured[1].index, 1);
+      expect(captured[1].value, 50);
+      expect(captured[2].index, 2);
+      expect(captured[2].value, 100);
+
+      // Middle hidden, endpoints shown.
+      expect(labels, ['0', '100']);
       Utils.changeInstance(utilsMainInstance);
     });
   });

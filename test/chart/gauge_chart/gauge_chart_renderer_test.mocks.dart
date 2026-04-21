@@ -1411,4 +1411,22 @@ class MockGaugeChartPainter extends _i1.Mock implements _i10.GaugeChartPainter {
           holder,
         ],
       )) as _i13.GaugeTouchedRing?);
+
+  @override
+  void drawTicks(
+    _i6.BuildContext? context,
+    _i11.CanvasWrapper? canvasWrapper,
+    _i12.PaintHolder<_i13.GaugeChartData>? holder,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #drawTicks,
+          [
+            context,
+            canvasWrapper,
+            holder,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
 }

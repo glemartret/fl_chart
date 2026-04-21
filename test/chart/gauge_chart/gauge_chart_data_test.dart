@@ -351,6 +351,139 @@ void main() {
       expect(gaugeTouchedRing1 == gaugeTouchedRing3, false);
     });
 
+    test('GaugeTicks equality, copyWith-free, lerp', () {
+      const a = GaugeTicks(
+        count: 5,
+        offset: 4,
+        labelStyle: TextStyle(fontSize: 10),
+        labelOffset: 3,
+      );
+      const aClone = GaugeTicks(
+        count: 5,
+        offset: 4,
+        labelStyle: TextStyle(fontSize: 10),
+        labelOffset: 3,
+      );
+      const b = GaugeTicks(
+        count: 9,
+        offset: 8,
+        position: GaugeTickPosition.inner,
+        painter: GaugeTickLinePainter(length: 12),
+        checkToShowTick: GaugeTicks.hideEndpoints,
+        labelStyle: TextStyle(fontSize: 14),
+        labelOffset: 7,
+      );
+      expect(a == aClone, true);
+      expect(a == b, false);
+      expect(
+        a ==
+            const GaugeTicks(
+              count: 5,
+              checkToShowTick: GaugeTicks.hideEndpoints,
+            ),
+        false,
+      );
+
+      // Null handling — lerp returns the non-null side (b).
+      expect(GaugeTicks.lerp(null, null, 0.5), isNull);
+      expect(GaugeTicks.lerp(null, a, 0.5), a);
+      expect(GaugeTicks.lerp(a, null, 0.5), isNull);
+
+      final mid = GaugeTicks.lerp(a, b, 0.5)!;
+      expect(mid.count, 7);
+      expect(mid.offset, 6);
+      expect(mid.labelOffset, 5);
+      expect(mid.position, GaugeTickPosition.inner); // snaps to b
+      // CheckToShowGaugeTick snaps to b too.
+      expect(identical(mid.checkToShowTick, GaugeTicks.hideEndpoints), true);
+      final midPainter = mid.painter as GaugeTickLinePainter;
+      expect(midPainter.length, 9);
+    });
+
+    test('GaugeTicks.hideEndpoints and showAll predicates', () {
+      const info0 = CheckToShowGaugeTickInfo(
+        index: 0,
+        count: 5,
+        value: 0,
+        minValue: 0,
+        maxValue: 100,
+      );
+      const infoMid = CheckToShowGaugeTickInfo(
+        index: 2,
+        count: 5,
+        value: 50,
+        minValue: 0,
+        maxValue: 100,
+      );
+      const infoLast = CheckToShowGaugeTickInfo(
+        index: 4,
+        count: 5,
+        value: 100,
+        minValue: 0,
+        maxValue: 100,
+      );
+
+      expect(GaugeTicks.showAll(info0), true);
+      expect(GaugeTicks.showAll(infoMid), true);
+      expect(GaugeTicks.showAll(infoLast), true);
+
+      expect(GaugeTicks.hideEndpoints(info0), false);
+      expect(GaugeTicks.hideEndpoints(infoMid), true);
+      expect(GaugeTicks.hideEndpoints(infoLast), false);
+    });
+
+    test('GaugeTickLinePainter equality, getSize, lerp, draw', () {
+      const a = GaugeTickLinePainter();
+      const b = GaugeTickLinePainter();
+      const c = GaugeTickLinePainter(length: 10);
+      expect(a == b, true);
+      expect(a == c, false);
+      expect(a.getSize(), const Size(6, 2));
+
+      // Cross-type lerp snaps to b.
+      final fallback = a.lerp(a, const GaugeTickCirclePainter(), 0.3);
+      expect(fallback, isA<GaugeTickCirclePainter>());
+
+      // Same-type lerp blends lengths.
+      final mid = a.lerp(a, c, 0.5) as GaugeTickLinePainter;
+      expect(mid.length, 8);
+
+      // draw calls canvas.drawLine(zero, (length, 0), paint).
+      final canvas = _RecordingCanvas();
+      a.draw(canvas);
+      expect(canvas.lines.length, 1);
+      expect(canvas.lines.first.p1, Offset.zero);
+      expect(canvas.lines.first.p2, const Offset(6, 0));
+    });
+
+    test('GaugeTickCirclePainter equality, getSize, lerp, draw', () {
+      const a = GaugeTickCirclePainter(color: Colors.red);
+      const b = GaugeTickCirclePainter(color: Colors.red);
+      const c = GaugeTickCirclePainter(radius: 5, color: Colors.red);
+      expect(a == b, true);
+      expect(a == c, false);
+      expect(a.getSize(), const Size.fromRadius(3));
+
+      // strokeWidth > 0 draws two circles (stroke + fill).
+      const withStroke = GaugeTickCirclePainter(
+        radius: 4,
+        color: Colors.red,
+        strokeWidth: 2,
+        strokeColor: Colors.blue,
+      );
+      final canvas = _RecordingCanvas();
+      withStroke.draw(canvas);
+      expect(canvas.circles.length, 2);
+      expect(canvas.circles[0].paint.style, PaintingStyle.stroke);
+      expect(canvas.circles[1].paint.style, PaintingStyle.fill);
+
+      // strokeWidth == 0 draws only fill.
+      final canvas2 = _RecordingCanvas();
+      const GaugeTickCirclePainter(radius: 4, color: Colors.red).draw(canvas2);
+      expect(canvas2.circles.length, 1);
+      expect(canvas2.circles.first.paint.style, PaintingStyle.fill);
+    });
+
     test('GaugeChartDataTween lerp', () {
       final a = GaugeChartData(
         rings: const [
@@ -438,4 +571,36 @@ class _DummyData extends BaseChartData {
 
   @override
   BaseChartData lerp(BaseChartData a, BaseChartData b, double t) => this;
+}
+
+class _RecordedCircle {
+  const _RecordedCircle(this.center, this.radius, this.paint);
+  final Offset center;
+  final double radius;
+  final Paint paint;
+}
+
+class _RecordedLine {
+  const _RecordedLine(this.p1, this.p2, this.paint);
+  final Offset p1;
+  final Offset p2;
+  final Paint paint;
+}
+
+class _RecordingCanvas implements Canvas {
+  final List<_RecordedCircle> circles = <_RecordedCircle>[];
+  final List<_RecordedLine> lines = <_RecordedLine>[];
+
+  @override
+  void drawCircle(Offset c, double radius, Paint paint) {
+    circles.add(_RecordedCircle(c, radius, paint));
+  }
+
+  @override
+  void drawLine(Offset p1, Offset p2, Paint paint) {
+    lines.add(_RecordedLine(p1, p2, paint));
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }

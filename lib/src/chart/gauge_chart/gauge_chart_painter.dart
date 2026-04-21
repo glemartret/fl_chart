@@ -24,6 +24,7 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
   ) {
     super.paint(context, canvasWrapper, holder);
     drawSections(canvasWrapper, holder);
+    drawTicks(context, canvasWrapper, holder);
   }
 
   /// Draws every ring. Dispatches on the concrete [GaugeRing] type
@@ -316,8 +317,29 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
     );
   }
 
-  /// Outer radius available for the gauge's rings.
-  double _outerArcRadius(Size viewSize) => viewSize.shortestSide / 2;
+  /// Padding reserved past the widget's shortest side for
+  /// outer-positioned ticks (and their labels, when present).
+  ///
+  /// Accounts for the tick's radial extent (`painter.getSize().width`
+  /// because the canvas is rotated so `+x` is radial), the signed
+  /// [GaugeTicks.offset], and — when [GaugeTicks.labelBuilder] is set
+  /// — a label-height heuristic (`labelStyle.fontSize * 1.2`, falling
+  /// back to 14) plus [GaugeTicks.labelOffset].
+  double _outerTickPadding(GaugeChartData data) {
+    final ticks = data.ticks;
+    if (ticks == null || ticks.position != GaugeTickPosition.outer) return 0;
+    var padding = ticks.offset + ticks.painter.getSize().width;
+    if (ticks.labelBuilder != null) {
+      final labelHeight = (ticks.labelStyle?.fontSize ?? 14) * 1.2;
+      padding += ticks.labelOffset + labelHeight;
+    }
+    return math.max<double>(0, padding);
+  }
+
+  /// Outer radius available for the gauge's rings — shrunk by
+  /// [_outerTickPadding] when outer ticks are configured.
+  double _outerArcRadius(Size viewSize, GaugeChartData data) =>
+      viewSize.shortestSide / 2 - _outerTickPadding(data);
 
   /// Total radial thickness consumed by all rings plus the gaps between
   /// them.
@@ -333,7 +355,7 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
   /// [GaugeChartData.rings]: entry 0 is the innermost ring, the last
   /// entry is the outermost.
   List<double> _sectionStrokeCenters(Size viewSize, GaugeChartData data) {
-    final outer = _outerArcRadius(viewSize);
+    final outer = _outerArcRadius(viewSize, data);
     final innerEdge = outer - _totalRingsDepth(data);
     final centers = <double>[];
     var currentInner = innerEdge;
@@ -344,6 +366,97 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
       currentInner += width;
     }
     return centers;
+  }
+
+  /// Radial position of the tick's anchor point (where the canvas
+  /// origin sits before the painter's `draw()` is called).
+  double _tickAnchorRadius(Size viewSize, GaugeChartData data) {
+    final ticks = data.ticks!;
+    final outer = _outerArcRadius(viewSize, data);
+    final inner = outer - _totalRingsDepth(data);
+    return switch (ticks.position) {
+      GaugeTickPosition.outer => outer + ticks.offset,
+      GaugeTickPosition.inner => inner - ticks.offset,
+      GaugeTickPosition.center => (outer + inner) / 2 + ticks.offset,
+    };
+  }
+
+  /// Draws every tick + optional label. The canvas is saved /
+  /// translated / rotated around each tick anchor so the painter can
+  /// draw a horizontal right-facing shape at the origin. Labels are
+  /// rendered upright (no rotation) past the tick's far edge.
+  @visibleForTesting
+  void drawTicks(
+    BuildContext context,
+    CanvasWrapper canvasWrapper,
+    PaintHolder<GaugeChartData> holder,
+  ) {
+    final data = holder.data;
+    final ticks = data.ticks;
+    if (ticks == null) return;
+
+    final viewSize = canvasWrapper.size;
+    final c = center(viewSize);
+    final dir = data.direction == GaugeDirection.clockwise ? 1 : -1;
+    final tickAnchorRadius = _tickAnchorRadius(viewSize, data);
+    final outwardSign = ticks.position == GaugeTickPosition.inner ? -1.0 : 1.0;
+    final rotationOffset =
+        ticks.position == GaugeTickPosition.inner ? math.pi : 0.0;
+    final tickFarRadius =
+        tickAnchorRadius + outwardSign * ticks.painter.getSize().width;
+    final interTickDegrees = (dir * data.sweepAngle) / (ticks.count - 1);
+    final labelStyle = ticks.labelBuilder != null
+        ? Utils().getThemeAwareTextStyle(context, ticks.labelStyle)
+        : null;
+    final range = data.maxValue - data.minValue;
+
+    final lastIndex = ticks.count - 1;
+    for (var i = 0; i < ticks.count; i++) {
+      final progress = i / lastIndex;
+      final value = data.minValue + progress * range;
+      final shouldShow = ticks.checkToShowTick(
+        CheckToShowGaugeTickInfo(
+          index: i,
+          count: ticks.count,
+          value: value,
+          minValue: data.minValue,
+          maxValue: data.maxValue,
+        ),
+      );
+      if (!shouldShow) continue;
+      final angleRad =
+          Utils().radians(data.startDegreeOffset + interTickDegrees * i);
+      final anchor = Offset(
+        c.dx + tickAnchorRadius * math.cos(angleRad),
+        c.dy + tickAnchorRadius * math.sin(angleRad),
+      );
+
+      canvasWrapper
+        ..save()
+        ..translate(anchor.dx, anchor.dy)
+        ..rotate(angleRad + rotationOffset);
+      ticks.painter.draw(canvasWrapper.canvas);
+      canvasWrapper.restore();
+
+      if (labelStyle != null) {
+        final text = ticks.labelBuilder!(value);
+        final tp = TextPainter(
+          text: TextSpan(text: text, style: labelStyle),
+          textDirection: TextDirection.ltr,
+          textScaler: holder.textScaler,
+        )..layout();
+        final labelCenterRadius =
+            tickFarRadius + outwardSign * (ticks.labelOffset + tp.height / 2);
+        final labelCenter = Offset(
+          c.dx + labelCenterRadius * math.cos(angleRad),
+          c.dy + labelCenterRadius * math.sin(angleRad),
+        );
+        canvasWrapper.drawText(
+          tp,
+          Offset(labelCenter.dx - tp.width / 2, labelCenter.dy - tp.height / 2),
+        );
+      }
+    }
   }
 
   double _signedSweep(GaugeChartData data) =>

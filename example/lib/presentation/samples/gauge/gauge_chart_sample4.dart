@@ -52,6 +52,22 @@ class GaugeChartSample4 extends StatelessWidget {
                     ],
                   ),
                 ],
+                ticks: GaugeTicks(
+                  count: 11,
+                  offset: 8,
+                  painter: const GaugeTickLinePainter(
+                    length: 10,
+                    thickness: 2,
+                    color: AppColors.contentColorWhite,
+                  ),
+                  labelBuilder: (v) => (v * 100).toStringAsFixed(0),
+                  labelStyle: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.contentColorWhite,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  labelOffset: 4,
+                ),
               ),
             ),
           ),

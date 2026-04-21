@@ -28,6 +28,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
     this.direction = GaugeDirection.clockwise,
     this.defaultRingWidth = 10.0,
     this.ringsSpace = 0.0,
+    this.ticks,
     GaugeTouchData? touchData,
     super.borderData,
   })  : rings = List.unmodifiable(rings),
@@ -76,6 +77,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
     double startDegreeOffset = -225.0,
     double sweepAngle = 270.0,
     GaugeDirection direction = GaugeDirection.clockwise,
+    GaugeTicks? ticks,
     GaugeTouchData? touchData,
     FlBorderData? borderData,
   }) =>
@@ -95,6 +97,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
         startDegreeOffset: startDegreeOffset,
         sweepAngle: sweepAngle,
         direction: direction,
+        ticks: ticks,
         touchData: touchData,
         borderData: borderData,
       );
@@ -128,6 +131,12 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
   /// Radial gap in pixels between adjacent rings.
   final double ringsSpace;
 
+  /// Optional tick configuration drawn along the gauge's scale. Ticks
+  /// reference the ring stack as a whole (outer edge of the outermost
+  /// ring, inner edge of the innermost ring, or radially centered) and
+  /// are not owned by any individual ring.
+  final GaugeTicks? ticks;
+
   /// Touch configuration and callback.
   final GaugeTouchData gaugeTouchData;
 
@@ -145,6 +154,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
         direction,
         defaultRingWidth,
         ringsSpace,
+        ticks,
         gaugeTouchData,
         borderData,
       ];
@@ -158,6 +168,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
     GaugeDirection? direction,
     double? defaultRingWidth,
     double? ringsSpace,
+    GaugeTicks? ticks,
     GaugeTouchData? touchData,
     FlBorderData? borderData,
   }) =>
@@ -170,6 +181,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
         direction: direction ?? this.direction,
         defaultRingWidth: defaultRingWidth ?? this.defaultRingWidth,
         ringsSpace: ringsSpace ?? this.ringsSpace,
+        ticks: ticks ?? this.ticks,
         touchData: touchData ?? gaugeTouchData,
         borderData: borderData ?? this.borderData,
       );
@@ -188,6 +200,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
         defaultRingWidth:
             lerpDouble(a.defaultRingWidth, b.defaultRingWidth, t)!,
         ringsSpace: lerpDouble(a.ringsSpace, b.ringsSpace, t)!,
+        ticks: GaugeTicks.lerp(a.ticks, b.ticks, t),
         touchData: b.gaugeTouchData,
         borderData: FlBorderData.lerp(a.borderData, b.borderData, t),
       );
@@ -410,6 +423,309 @@ class GaugeChartDataTween extends Tween<GaugeChartData> {
 enum GaugeDirection {
   clockwise,
   counterClockwise,
+}
+
+/// Where tick marks sit relative to the gauge's ring stack.
+enum GaugeTickPosition {
+  /// Outside the outermost ring. Reserves radial padding so rings
+  /// shrink to fit ticks (and labels, when present).
+  outer,
+
+  /// Inside the innermost ring's inner edge, toward the gauge center.
+  inner,
+
+  /// Radially centered between the outermost ring's outer edge and
+  /// the innermost ring's inner edge.
+  center,
+}
+
+/// Configuration for tick marks drawn along a [GaugeChartData]'s arc.
+///
+/// Ticks frame the gauge as a whole — they reference the ring stack's
+/// outer / inner envelope, not an individual ring. Evenly spaced along
+/// the sweep, with the first tick at [GaugeChartData.startDegreeOffset]
+/// and the last at the sweep's end.
+///
+/// When [labelBuilder] is provided, a text label is painted radially
+/// past each tick. Labels stay upright (not tangent-rotated) for
+/// readability.
+@immutable
+class GaugeTicks with EquatableMixin {
+  const GaugeTicks({
+    this.count = 3,
+    this.position = GaugeTickPosition.outer,
+    this.offset = 0,
+    this.painter = const GaugeTickLinePainter(),
+    this.checkToShowTick = showAll,
+    this.labelBuilder,
+    this.labelStyle,
+    this.labelOffset = 0,
+  }) : assert(count >= 2, 'count must be >= 2');
+
+  /// Number of ticks drawn, including both sweep endpoints. Minimum 2.
+  final int count;
+
+  /// Where ticks sit relative to the gauge's outer / inner bounds.
+  final GaugeTickPosition position;
+
+  /// Signed pixel delta from the natural tick anchor, measured along
+  /// the [position]'s outward axis (away from center for [outer],
+  /// toward center for [inner], toward outer for [center]). Positive
+  /// extends the tick farther in that direction; negative pulls it
+  /// back toward (or across) the ring stack.
+  final double offset;
+
+  /// Renders each tick. The canvas is pre-translated and pre-rotated
+  /// so the painter just draws a horizontal, right-facing shape at
+  /// the origin — see [GaugeTickPainter.draw].
+  final GaugeTickPainter painter;
+
+  /// Predicate deciding whether each tick is drawn. Receives a
+  /// [CheckToShowGaugeTickInfo] with the tick's index, the total [count], its
+  /// scale value, and the chart's `minValue` / `maxValue`. Returning
+  /// `false` skips both the tick mark and its label.
+  ///
+  /// Defaults to [GaugeTicks.showAll]. Use [GaugeTicks.hideEndpoints]
+  /// to skip the first and last ticks — handy when the arc already
+  /// visually anchors its extremes (e.g. rounded zone caps). Users
+  /// can pass any predicate for custom behaviour.
+  ///
+  /// Pass a top-level or static function when possible; anonymous
+  /// closures compare by identity, which breaks equality across
+  /// rebuilds and causes unnecessary tween animations.
+  final CheckToShowGaugeTick checkToShowTick;
+
+  /// Default [CheckToShowGaugeTick] — draws every tick.
+  static bool showAll(CheckToShowGaugeTickInfo info) => true;
+
+  /// [CheckToShowGaugeTick] that skips the first and last ticks. Equivalent
+  /// to `info.index != 0 && info.index != info.count - 1`.
+  static bool hideEndpoints(CheckToShowGaugeTickInfo info) =>
+      info.index != 0 && info.index != info.count - 1;
+
+  /// Returns the text painted as a label next to each tick. The input
+  /// is the tick's scale value on `[minValue, maxValue]`. When `null`,
+  /// no labels are drawn. To keep a tick mark but drop its label at a
+  /// specific value, return an empty string from this builder.
+  final String Function(double value)? labelBuilder;
+
+  /// Style applied to labels, merged with the chart's current theme.
+  /// When `null`, the theme's default text style is used.
+  final TextStyle? labelStyle;
+
+  /// Signed pixel delta between the tick's far edge and its label,
+  /// along the same outward axis as [offset]. Positive pushes the
+  /// label further outward; negative pulls it toward (or across) the
+  /// tick.
+  final double labelOffset;
+
+  @override
+  List<Object?> get props => [
+        count,
+        position,
+        offset,
+        painter,
+        checkToShowTick,
+        labelBuilder,
+        labelStyle,
+        labelOffset,
+      ];
+
+  static GaugeTicks? lerp(GaugeTicks? a, GaugeTicks? b, double t) {
+    if (a == null || b == null) return b;
+    return GaugeTicks(
+      count: lerpInt(a.count, b.count, t),
+      position: b.position,
+      offset: lerpDouble(a.offset, b.offset, t)!,
+      painter: a.painter.lerp(a.painter, b.painter, t),
+      checkToShowTick: b.checkToShowTick,
+      labelBuilder: b.labelBuilder,
+      labelStyle: TextStyle.lerp(a.labelStyle, b.labelStyle, t),
+      labelOffset: lerpDouble(a.labelOffset, b.labelOffset, t)!,
+    );
+  }
+}
+
+/// Signature for a predicate that decides whether a gauge tick is
+/// drawn. See [GaugeTicks.CheckToShowGaugeTick].
+typedef CheckToShowGaugeTick = bool Function(CheckToShowGaugeTickInfo info);
+
+/// Context passed to [CheckToShowGaugeTick] callbacks.
+@immutable
+class CheckToShowGaugeTickInfo with EquatableMixin {
+  const CheckToShowGaugeTickInfo({
+    required this.index,
+    required this.count,
+    required this.value,
+    required this.minValue,
+    required this.maxValue,
+  });
+
+  /// Position of this tick in the sweep, `0` for the first tick and
+  /// `count - 1` for the last.
+  final int index;
+
+  /// Total number of tick positions, matching [GaugeTicks.count].
+  final int count;
+
+  /// Scale value at this tick's position, on `[minValue, maxValue]`.
+  final double value;
+
+  /// The gauge's minimum scale value ([GaugeChartData.minValue]).
+  final double minValue;
+
+  /// The gauge's maximum scale value ([GaugeChartData.maxValue]).
+  final double maxValue;
+
+  @override
+  List<Object?> get props => [index, count, value, minValue, maxValue];
+}
+
+/// Interface for rendering a single tick mark on a [GaugeChart].
+///
+/// The gauge painter pre-translates and pre-rotates the canvas for
+/// each tick so implementations never touch trig: `(0, 0)` is the
+/// tick's anchor point, the `+x` axis points in the tick's outward
+/// direction (see [GaugeTicks.position]), and the `+y` axis is
+/// tangent to the arc in the sweep direction. Draw a horizontal,
+/// right-facing shape at the origin and the gauge handles placing
+/// and rotating it for every tick angle.
+///
+/// Mirrors the [FlDotPainter] pattern. Subclass it to draw custom
+/// tick shapes or oriented marks.
+abstract class GaugeTickPainter with EquatableMixin {
+  const GaugeTickPainter();
+
+  /// Draws a single tick in the pre-transformed local frame described
+  /// in the class docstring.
+  void draw(Canvas canvas);
+
+  /// Bounding box of the tick in the unrotated local frame.
+  ///
+  /// `width` is the radial extent (along `+x`) and is used to reserve
+  /// outer padding; `height` is the tangential extent (across `+y`).
+  Size getSize();
+
+  /// Lerps two painter configurations. Cross-type lerps fall back to
+  /// [b], matching [FlDotPainter.lerp].
+  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t);
+}
+
+/// Default [GaugeTickPainter]: draws a line segment along `+x`, so
+/// each tick points radially outward (relative to [GaugeTicks.position]).
+class GaugeTickLinePainter extends GaugeTickPainter {
+  const GaugeTickLinePainter({
+    this.length = 6.0,
+    this.thickness = 2.0,
+    this.color = const Color(0xFF000000),
+  })  : assert(length > 0, 'length must be > 0'),
+        assert(thickness > 0, 'thickness must be > 0');
+
+  final double length;
+  final double thickness;
+  final Color color;
+
+  @override
+  void draw(Canvas canvas) {
+    canvas.drawLine(
+      Offset.zero,
+      Offset(length, 0),
+      Paint()
+        ..color = color
+        ..strokeWidth = thickness
+        ..strokeCap = StrokeCap.round
+        ..isAntiAlias = true,
+    );
+  }
+
+  @override
+  Size getSize() => Size(length, thickness);
+
+  GaugeTickLinePainter _lerp(
+    GaugeTickLinePainter a,
+    GaugeTickLinePainter b,
+    double t,
+  ) =>
+      GaugeTickLinePainter(
+        length: lerpDouble(a.length, b.length, t)!,
+        thickness: lerpDouble(a.thickness, b.thickness, t)!,
+        color: Color.lerp(a.color, b.color, t)!,
+      );
+
+  @override
+  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t) {
+    if (a is! GaugeTickLinePainter || b is! GaugeTickLinePainter) {
+      return b;
+    }
+    return _lerp(a, b, t);
+  }
+
+  @override
+  List<Object?> get props => [length, thickness, color];
+}
+
+/// [GaugeTickPainter] that draws each tick as a filled circle,
+/// optionally with a stroked outline. Rotation-invariant by shape, so
+/// it looks identical at every angle.
+class GaugeTickCirclePainter extends GaugeTickPainter {
+  const GaugeTickCirclePainter({
+    this.radius = 3.0,
+    this.color = const Color(0xFF000000),
+    this.strokeWidth = 0.0,
+    this.strokeColor = const Color(0xFF000000),
+  }) : assert(radius > 0, 'radius must be > 0');
+
+  final double radius;
+  final Color color;
+  final double strokeWidth;
+  final Color strokeColor;
+
+  @override
+  void draw(Canvas canvas) {
+    if (strokeWidth > 0 && strokeColor.a != 0) {
+      canvas.drawCircle(
+        Offset.zero,
+        radius + strokeWidth / 2,
+        Paint()
+          ..color = strokeColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth,
+      );
+    }
+    canvas.drawCircle(
+      Offset.zero,
+      radius,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  Size getSize() => Size.fromRadius(radius + strokeWidth);
+
+  GaugeTickCirclePainter _lerp(
+    GaugeTickCirclePainter a,
+    GaugeTickCirclePainter b,
+    double t,
+  ) =>
+      GaugeTickCirclePainter(
+        radius: lerpDouble(a.radius, b.radius, t)!,
+        color: Color.lerp(a.color, b.color, t)!,
+        strokeWidth: lerpDouble(a.strokeWidth, b.strokeWidth, t)!,
+        strokeColor: Color.lerp(a.strokeColor, b.strokeColor, t)!,
+      );
+
+  @override
+  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t) {
+    if (a is! GaugeTickCirclePainter || b is! GaugeTickCirclePainter) {
+      return b;
+    }
+    return _lerp(a, b, t);
+  }
+
+  @override
+  List<Object?> get props => [radius, color, strokeWidth, strokeColor];
 }
 
 class GaugeTouchData extends FlTouchData<GaugeTouchResponse>

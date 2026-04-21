@@ -116,6 +116,7 @@ GaugeChart(
 |direction| whether the arc travels clockwise or counter-clockwise from `startDegreeOffset` — see [GaugeDirection](#GaugeDirection)|GaugeDirection.clockwise|
 |defaultRingWidth| width used for rings that don't specify their own `width`|10.0|
 |ringsSpace| radial pixel gap between adjacent rings|0.0|
+|ticks| optional tick configuration; see [GaugeTicks](#GaugeTicks)|null|
 |touchData| [GaugeTouchData](#GaugeTouchData) holds the touch interactivity details|GaugeTouchData()|
 |borderData| shows a border around the chart, see [FlBorderData](base_chart.md#FlBorderData)|FlBorderData()|
 
@@ -161,6 +162,42 @@ A single colored band within a [GaugeZonesRing](#GaugeZonesRing).
 |:----|:-------|
 |`clockwise`| arc travels clockwise from `startDegreeOffset`.|
 |`counterClockwise`| arc travels counter-clockwise from `startDegreeOffset`.|
+
+### GaugeTicks
+Tick marks drawn along the gauge's scale. Ticks frame the gauge as a whole — they reference the ring stack's outer edge, inner edge, or radial center — and are not owned by any individual ring. Ticks are evenly spaced from `startDegreeOffset` across the sweep (endpoints included).
+
+|PropName|Description|default value|
+|:-------|:----------|:------------|
+|count| number of ticks drawn, including both sweep endpoints; must be `>= 2`|3|
+|position| where ticks sit — see [GaugeTickPosition](#GaugeTickPosition)|GaugeTickPosition.outer|
+|offset| **signed** pixel delta from the natural tick anchor, measured along the `position`'s outward axis (away from center for `outer`, toward center for `inner`, toward outer for `center`). Positive extends the tick farther in that direction; negative pulls it back toward / across the ring stack.|0|
+|painter| [GaugeTickPainter](#GaugeTickPainter) that renders each tick|GaugeTickLinePainter()|
+|CheckToShowGaugeTick| `bool Function(CheckToShowGaugeTickInfo info)` — predicate called per tick. Returning `false` skips both the tick mark and its label. Receives the tick's `index`, the total `count`, its scale `value`, and the chart's `minValue` / `maxValue`. Two predefined predicates ship on `GaugeTicks`: `GaugeTicks.showAll` (the default) and `GaugeTicks.hideEndpoints` (skip the first and last tick — handy when the arc already visually anchors its extremes via rounded zone caps). Use top-level / static references rather than anonymous closures so equality holds across rebuilds.|GaugeTicks.showAll|
+|labelBuilder| optional `String Function(double value)` returning the label for each tick's scale value. `null` means no labels.|null|
+|labelStyle| style applied to labels, merged with the current theme via `getThemeAwareTextStyle`. `null` inherits the theme's default text style.|null|
+|labelOffset| **signed** pixel delta between the tick's far edge and the label center, along the same outward axis as `offset`. Positive pushes the label further outward; negative pulls it toward / across the tick.|0|
+
+### GaugeTickPosition
+|Value|Behavior|
+|:----|:-------|
+|`outer`| ticks sit outside the outermost ring; reserves radial padding so the ring stack fits inside the widget bounds.|
+|`inner`| ticks sit inside the innermost ring's inner edge, toward the gauge center.|
+|`center`| ticks are radially centered between the outermost and innermost ring edges.|
+
+### GaugeTickPainter
+Interface for rendering a single tick mark. Subclass it to draw custom tick shapes. Mirrors the [FlDotPainter](line_chart.md) pattern.
+
+**Pre-transformed canvas** — the gauge painter translates and rotates the canvas around each tick's anchor before calling `draw`, so implementations never touch trigonometry:
+
+- origin `(0, 0)` is the tick's anchor on the gauge
+- `+x` axis points in the tick's outward direction (per `GaugeTicks.position`)
+- `+y` axis is tangent to the arc in the sweep direction
+
+Draw a horizontal, right-facing shape at the origin; the gauge handles placing and rotating it for every tick angle. `getSize()` reports the bounding box in this unrotated local frame — `width` is the radial extent (used for outer padding), `height` is the tangential extent.
+
+Built-in implementations:
+- **GaugeTickLinePainter** — draws a line from the origin to `(length, 0)`; the canonical tick shape. Properties: `length` (default 6), `thickness` (default 2), `color` (default black). This is the default.
+- **GaugeTickCirclePainter** — rotation-invariant filled circle, optionally with a stroked outline. Properties: `radius` (default 3), `color` (default black), `strokeWidth` (default 0), `strokeColor` (default black).
 
 ### GaugeTouchData ([read about touch handling](handle_touches.md))
 |PropName|Description|default value|

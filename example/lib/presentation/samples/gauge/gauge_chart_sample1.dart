@@ -26,13 +26,23 @@ class GaugeChartSample1State extends State<GaugeChartSample1> {
                 GaugeChart(
                   GaugeChartData.progress(
                     value: _value,
-                    color: AppColors.contentColorYellow,
+                    color: AppColors.contentColorPurple,
                     width: 30,
                     backgroundColor:
                         AppColors.contentColorPurple.withValues(alpha: 0.2),
                     startDegreeOffset: -200,
                     sweepAngle: 220,
                     touchData: GaugeTouchData(enabled: true),
+                    ticks: GaugeTicks(
+                      position: GaugeTickPosition.center,
+                      count: 11,
+                      offset: 0,
+                      painter: const GaugeTickCirclePainter(
+                        color: AppColors.contentColorWhite,
+                        radius: 5,
+                      ),
+                      checkToShowTick: GaugeTicks.hideEndpoints,
+                    ),
                   ),
                 ),
                 Center(
