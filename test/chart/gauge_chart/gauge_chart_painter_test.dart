@@ -562,6 +562,106 @@ void main() {
       Utils.changeInstance(utilsMainInstance);
     });
 
+    test(
+        'zonesSpace with StrokeCap.round zones re-adds cap circles on '
+        'each side of the carved gap', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        maxValue: 100,
+        rings: const [
+          GaugeZonesRing(
+            width: 10,
+            zonesSpace: 16,
+            zones: [
+              GaugeZone(
+                from: 0,
+                to: 50,
+                color: MockData.color0,
+                strokeCap: StrokeCap.round,
+              ),
+              GaugeZone(
+                from: 50,
+                to: 100,
+                color: MockData.color1,
+                strokeCap: StrokeCap.round,
+              ),
+            ],
+          ),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 180,
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final caps = <Color>[];
+      when(mockCanvasWrapper.drawCircle(captureAny, captureAny, captureAny))
+          .thenAnswer((inv) {
+        caps.add((inv.positionalArguments[2] as Paint).color);
+      });
+
+      gaugePainter.drawSections(mockCanvasWrapper, holder);
+
+      // At the single internal boundary, a cap is re-drawn on each side —
+      // one in zone 0's color, one in zone 1's color.
+      expect(caps.length, 2);
+      expect(caps[0], isSameColorAs(MockData.color0));
+      expect(caps[1], isSameColorAs(MockData.color1));
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test(
+        'zonesSpace with mixed StrokeCap — only round zones get cap '
+        're-added', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        maxValue: 100,
+        rings: const [
+          GaugeZonesRing(
+            width: 10,
+            zonesSpace: 16,
+            zones: [
+              GaugeZone(
+                from: 0,
+                to: 50,
+                color: MockData.color0,
+                strokeCap: StrokeCap.round,
+              ),
+              GaugeZone(from: 50, to: 100, color: MockData.color1),
+            ],
+          ),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 180,
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final caps = <Color>[];
+      when(mockCanvasWrapper.drawCircle(captureAny, captureAny, captureAny))
+          .thenAnswer((inv) {
+        caps.add((inv.positionalArguments[2] as Paint).color);
+      });
+
+      gaugePainter.drawSections(mockCanvasWrapper, holder);
+
+      // Only zone 0 (round) gets a cap re-added; zone 1 (butt) does not.
+      expect(caps, [isSameColorAs(MockData.color0)]);
+      Utils.changeInstance(utilsMainInstance);
+    });
+
     test('zonesSpace == 0 skips saveLayer and draws zones directly', () {
       const viewSize = Size(400, 400);
       final data = GaugeChartData(
@@ -752,6 +852,39 @@ void main() {
       expect(rotations[4], closeTo(90, 1e-9));
       // No labels configured → no drawText.
       verifyNever(mockCanvasWrapper.drawText(any, any));
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test(
+        'center position places ticks radially between inner and outer '
+        'ring edges', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 20),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 90,
+        ticks: const GaugeTicks(
+          count: 2,
+          position: GaugeTickPosition.center,
+        ),
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      gaugePainter.drawTicks(MockBuildContext(), mockCanvasWrapper, holder);
+
+      // Center position uses (outer + inner) / 2 + offset — just asserting
+      // the branch is exercised (paths hit, no crash).
+      verify(mockCanvasWrapper.save()).called(2);
+      verify(mockCanvasWrapper.restore()).called(2);
       Utils.changeInstance(utilsMainInstance);
     });
 

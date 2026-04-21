@@ -532,6 +532,7 @@ void main() {
     });
 
     test('GaugePointerCirclePainter draws at anchorRadius on +x axis', () {
+      // Non-const construction so assertion lines get runtime coverage.
       const a = GaugePointerCirclePainter(
         radius: 5,
         anchorRadius: 100,
@@ -555,6 +556,83 @@ void main() {
       expect(canvas2.circles.length, 2);
       expect(canvas2.circles[0].paint.style, PaintingStyle.stroke);
       expect(canvas2.circles[1].paint.style, PaintingStyle.fill);
+
+      // Asserts fire on invalid inputs.
+      expect(
+        () => GaugePointerCirclePainter(radius: 0),
+        throwsAssertionError,
+      );
+      expect(
+        () => GaugePointerCirclePainter(anchorRadius: -1),
+        throwsAssertionError,
+      );
+      expect(
+        () => GaugePointerCirclePainter(strokeWidth: -1),
+        throwsAssertionError,
+      );
+    });
+
+    test('GaugePointerCirclePainter equality, getSize, lerp', () {
+      const a = GaugePointerCirclePainter(radius: 5, anchorRadius: 100);
+      const b = GaugePointerCirclePainter(radius: 5, anchorRadius: 100);
+      const c = GaugePointerCirclePainter(radius: 9, anchorRadius: 100);
+      expect(a == b, true);
+      expect(a == c, false);
+
+      // getSize: width = anchorRadius + radius + strokeWidth; height = 2 * that.
+      expect(a.getSize(), const Size(105, 10));
+      const withStroke = GaugePointerCirclePainter(radius: 5, strokeWidth: 2);
+      expect(withStroke.getSize(), const Size(7, 14));
+
+      // Same-type lerp blends fields.
+      final mid = a.lerp(a, c, 0.5) as GaugePointerCirclePainter;
+      expect(mid.radius, 7);
+      expect(mid.anchorRadius, 100);
+
+      // Cross-type lerp snaps to b.
+      final fallback = a.lerp(a, const GaugePointerNeedlePainter(), 0.3);
+      expect(fallback, isA<GaugePointerNeedlePainter>());
+    });
+
+    test('GaugeTickCirclePainter lerp (same-type + cross-type)', () {
+      const a = GaugeTickCirclePainter();
+      const c = GaugeTickCirclePainter(radius: 9);
+      final mid = a.lerp(a, c, 0.5) as GaugeTickCirclePainter;
+      expect(mid.radius, 6);
+
+      // Cross-type lerp to a line painter snaps to b.
+      final fallback = a.lerp(a, const GaugeTickLinePainter(), 0.5);
+      expect(fallback, isA<GaugeTickLinePainter>());
+
+      // Non-const construction exercises the assertion branch.
+      expect(() => GaugeTickCirclePainter(radius: 0), throwsAssertionError);
+    });
+
+    test('CheckToShowGaugeTickInfo equality and props', () {
+      const a = CheckToShowGaugeTickInfo(
+        index: 1,
+        count: 5,
+        value: 25,
+        minValue: 0,
+        maxValue: 100,
+      );
+      const b = CheckToShowGaugeTickInfo(
+        index: 1,
+        count: 5,
+        value: 25,
+        minValue: 0,
+        maxValue: 100,
+      );
+      const c = CheckToShowGaugeTickInfo(
+        index: 2,
+        count: 5,
+        value: 50,
+        minValue: 0,
+        maxValue: 100,
+      );
+      expect(a == b, true);
+      expect(a == c, false);
+      expect(a.props.length, 5);
     });
 
     test('GaugeChartData.pointers default, copyWith, lerp', () {
