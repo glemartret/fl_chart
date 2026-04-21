@@ -2,8 +2,16 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:fl_chart_app/presentation/resources/app_colors.dart';
 import 'package:flutter/material.dart';
 
-class GaugeChartSample4 extends StatelessWidget {
+class GaugeChartSample4 extends StatefulWidget {
   const GaugeChartSample4({super.key});
+
+  @override
+  State<GaugeChartSample4> createState() => _GaugeChartSample4State();
+}
+
+class _GaugeChartSample4State extends State<GaugeChartSample4> {
+
+  double _value = 0.35;
 
   @override
   Widget build(BuildContext context) {
@@ -68,10 +76,10 @@ class GaugeChartSample4 extends StatelessWidget {
                   ),
                   labelOffset: 4,
                 ),
-                pointers: const [
+                pointers: [
                   // Needle extending from center toward the current value.
                   GaugePointer(
-                    value: 0.35,
+                    value: _value,
                     painter: GaugePointerNeedlePainter(
                       length: 80,
                       width: 10,
@@ -95,6 +103,10 @@ class GaugeChartSample4 extends StatelessWidget {
               ),
             ),
           ),
+          Slider(
+            value: _value,
+            onChanged: (v) => setState(() => _value = v),
+          )
         ],
       ),
     );
