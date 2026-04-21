@@ -1361,6 +1361,10 @@ const GaugeZonesRing gaugeZonesRing1 = GaugeZonesRing(
   zonesSpace: 2,
   width: 8,
 );
+const GaugePointer gaugePointer1 = GaugePointer(
+  value: 0.6,
+  painter: GaugePointerNeedlePainter(length: 40, width: 6),
+);
 final GaugeTouchData gaugeTouchData1 = GaugeTouchData(
   enabled: true,
   touchCallback: (_, __) {},

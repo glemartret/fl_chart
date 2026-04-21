@@ -25,6 +25,7 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
     super.paint(context, canvasWrapper, holder);
     drawSections(canvasWrapper, holder);
     drawTicks(context, canvasWrapper, holder);
+    drawPointers(canvasWrapper, holder);
   }
 
   /// Draws every ring. Dispatches on the concrete [GaugeRing] type
@@ -463,6 +464,36 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
       data.direction == GaugeDirection.clockwise
           ? data.sweepAngle
           : -data.sweepAngle;
+
+  /// Draws every [GaugePointer] on top of the rings and ticks. Each
+  /// pointer's canvas is pre-translated to the gauge center and
+  /// pre-rotated so `+x` points radially toward the pointer's value
+  /// angle — see [GaugePointerPainter.draw] for the local frame.
+  @visibleForTesting
+  void drawPointers(
+    CanvasWrapper canvasWrapper,
+    PaintHolder<GaugeChartData> holder,
+  ) {
+    final data = holder.data;
+    if (data.pointers.isEmpty) return;
+
+    final c = center(canvasWrapper.size);
+    final dir = data.direction == GaugeDirection.clockwise ? 1 : -1;
+    final range = data.maxValue - data.minValue;
+
+    for (final pointer in data.pointers) {
+      final progress = (pointer.value - data.minValue) / range;
+      final angleRad = Utils().radians(
+        data.startDegreeOffset + dir * data.sweepAngle * progress,
+      );
+      canvasWrapper
+        ..save()
+        ..translate(c.dx, c.dy)
+        ..rotate(angleRad);
+      pointer.painter.draw(canvasWrapper.canvas);
+      canvasWrapper.restore();
+    }
+  }
 
   /// Projects [touchDeg] onto the arc's local angular coordinate
   /// (0 at start, positive toward sweep end). Returns null when the

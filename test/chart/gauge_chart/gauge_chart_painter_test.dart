@@ -928,4 +928,123 @@ void main() {
       Utils.changeInstance(utilsMainInstance);
     });
   });
+
+  group('drawPointers()', () {
+    test('no-op when pointers list is empty', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        sweepAngle: 90,
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      gaugePainter.drawPointers(mockCanvasWrapper, holder);
+
+      verifyNever(mockCanvasWrapper.save());
+      verifyNever(mockCanvasWrapper.translate(any, any));
+      verifyNever(mockCanvasWrapper.rotate(any));
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test(
+        'one save/translate/rotate/restore per pointer, angle = '
+        'startDegreeOffset + dir * sweepAngle * progress', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        maxValue: 100,
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 180,
+        pointers: const [
+          GaugePointer(value: 0),
+          GaugePointer(value: 50),
+          GaugePointer(value: 100),
+        ],
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final translations = <Offset>[];
+      when(mockCanvasWrapper.translate(captureAny, captureAny))
+          .thenAnswer((inv) {
+        translations.add(
+          Offset(
+            inv.positionalArguments[0] as double,
+            inv.positionalArguments[1] as double,
+          ),
+        );
+      });
+      final rotations = <double>[];
+      when(mockCanvasWrapper.rotate(captureAny)).thenAnswer((inv) {
+        rotations.add(inv.positionalArguments[0] as double);
+      });
+
+      gaugePainter.drawPointers(mockCanvasWrapper, holder);
+
+      verify(mockCanvasWrapper.save()).called(3);
+      verify(mockCanvasWrapper.restore()).called(3);
+
+      // Every translate goes to the gauge center (viewSize / 2).
+      expect(translations, everyElement(const Offset(200, 200)));
+
+      // Angles match: value 0 → 0°, value 50 → 90°, value 100 → 180°
+      // (identity mock passes the degree through unchanged).
+      expect(rotations[0], 0);
+      expect(rotations[1], closeTo(90, 1e-9));
+      expect(rotations[2], closeTo(180, 1e-9));
+      Utils.changeInstance(utilsMainInstance);
+    });
+
+    test('counter-clockwise direction flips the angle sign', () {
+      const viewSize = Size(400, 400);
+      final data = GaugeChartData(
+        maxValue: 100,
+        rings: const [
+          GaugeProgressRing(value: 1, color: Colors.red, width: 10),
+        ],
+        startDegreeOffset: 0,
+        sweepAngle: 180,
+        direction: GaugeDirection.counterClockwise,
+        pointers: const [
+          GaugePointer(value: 50),
+        ],
+      );
+      final gaugePainter = GaugeChartPainter();
+      final holder =
+          PaintHolder<GaugeChartData>(data, data, TextScaler.noScaling);
+      installIdentityUtilsMock();
+
+      final mockCanvasWrapper = MockCanvasWrapper();
+      when(mockCanvasWrapper.size).thenAnswer((_) => viewSize);
+      when(mockCanvasWrapper.canvas).thenReturn(MockCanvas());
+
+      final rotations = <double>[];
+      when(mockCanvasWrapper.rotate(captureAny)).thenAnswer((inv) {
+        rotations.add(inv.positionalArguments[0] as double);
+      });
+
+      gaugePainter.drawPointers(mockCanvasWrapper, holder);
+
+      // dir = -1, progress 0.5, so angle = 0 + -1 * 180 * 0.5 = -90.
+      expect(rotations.single, closeTo(-90, 1e-9));
+      Utils.changeInstance(utilsMainInstance);
+    });
+  });
 }

@@ -484,6 +484,104 @@ void main() {
       expect(canvas2.circles.first.paint.style, PaintingStyle.fill);
     });
 
+    test('GaugePointer equality, copyWith, lerp', () {
+      const a = GaugePointer(
+        value: 0.2,
+        painter: GaugePointerNeedlePainter(length: 40),
+      );
+      const b = GaugePointer(
+        value: 0.8,
+        painter: GaugePointerNeedlePainter(length: 80),
+      );
+      expect(a == a.copyWith(), true);
+      expect(a == a.copyWith(value: 0.5), false);
+      expect(
+        a == a.copyWith(painter: const GaugePointerNeedlePainter(length: 99)),
+        false,
+      );
+
+      final mid = GaugePointer.lerp(a, b, 0.5);
+      expect(mid.value, closeTo(0.5, 1e-9));
+      expect(
+        (mid.painter as GaugePointerNeedlePainter).length,
+        closeTo(60, 1e-9),
+      );
+    });
+
+    test('GaugePointerNeedlePainter equality, getSize, lerp, draw', () {
+      const a = GaugePointerNeedlePainter(length: 40, width: 6);
+      const b = GaugePointerNeedlePainter(length: 40, width: 6);
+      const c = GaugePointerNeedlePainter(length: 80, width: 6);
+      expect(a == b, true);
+      expect(a == c, false);
+      expect(a.getSize(), const Size(40, 6));
+
+      // Cross-type lerp snaps to b.
+      final fallback = a.lerp(a, const GaugePointerCirclePainter(), 0.2);
+      expect(fallback, isA<GaugePointerCirclePainter>());
+
+      // Same-type lerp blends.
+      final mid = a.lerp(a, c, 0.5) as GaugePointerNeedlePainter;
+      expect(mid.length, 60);
+
+      // Draw emits a single filled triangle path.
+      final canvas = _RecordingCanvas();
+      a.draw(canvas);
+      expect(canvas.paths.length, 1);
+      expect(canvas.paths.first.paint.style, PaintingStyle.fill);
+    });
+
+    test('GaugePointerCirclePainter draws at anchorRadius on +x axis', () {
+      const a = GaugePointerCirclePainter(
+        radius: 5,
+        anchorRadius: 100,
+        color: Colors.red,
+      );
+      final canvas = _RecordingCanvas();
+      a.draw(canvas);
+      // anchorRadius on +x: circle centered at (100, 0).
+      expect(canvas.circles.length, 1);
+      expect(canvas.circles.first.center, const Offset(100, 0));
+      expect(canvas.circles.first.radius, 5);
+
+      // With strokeWidth > 0, outline first then fill.
+      const outlined = GaugePointerCirclePainter(
+        radius: 5,
+        strokeWidth: 2,
+        strokeColor: Colors.blue,
+      );
+      final canvas2 = _RecordingCanvas();
+      outlined.draw(canvas2);
+      expect(canvas2.circles.length, 2);
+      expect(canvas2.circles[0].paint.style, PaintingStyle.stroke);
+      expect(canvas2.circles[1].paint.style, PaintingStyle.fill);
+    });
+
+    test('GaugeChartData.pointers default, copyWith, lerp', () {
+      final empty = GaugeChartData(
+        rings: const [GaugeProgressRing(value: 0.5, color: Colors.red)],
+      );
+      expect(empty.pointers, isEmpty);
+
+      final withPointers = empty.copyWith(pointers: const [gaugePointer1]);
+      expect(withPointers.pointers, hasLength(1));
+      expect(withPointers.pointers.first.value, 0.6);
+
+      // Lerp two charts with different pointer lists.
+      final a = empty.copyWith(
+        pointers: const [
+          GaugePointer(value: 0.2),
+        ],
+      );
+      final b = empty.copyWith(
+        pointers: const [
+          GaugePointer(value: 0.8),
+        ],
+      );
+      final mid = a.lerp(a, b, 0.5);
+      expect(mid.pointers.single.value, closeTo(0.5, 1e-9));
+    });
+
     test('GaugeChartDataTween lerp', () {
       final a = GaugeChartData(
         rings: const [
@@ -587,9 +685,16 @@ class _RecordedLine {
   final Paint paint;
 }
 
+class _RecordedPath {
+  const _RecordedPath(this.path, this.paint);
+  final Path path;
+  final Paint paint;
+}
+
 class _RecordingCanvas implements Canvas {
   final List<_RecordedCircle> circles = <_RecordedCircle>[];
   final List<_RecordedLine> lines = <_RecordedLine>[];
+  final List<_RecordedPath> paths = <_RecordedPath>[];
 
   @override
   void drawCircle(Offset c, double radius, Paint paint) {
@@ -599,6 +704,11 @@ class _RecordingCanvas implements Canvas {
   @override
   void drawLine(Offset p1, Offset p2, Paint paint) {
     lines.add(_RecordedLine(p1, p2, paint));
+  }
+
+  @override
+  void drawPath(Path path, Paint paint) {
+    paths.add(_RecordedPath(path, paint));
   }
 
   @override

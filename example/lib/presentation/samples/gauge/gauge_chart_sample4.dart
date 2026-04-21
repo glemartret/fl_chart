@@ -68,6 +68,30 @@ class GaugeChartSample4 extends StatelessWidget {
                   ),
                   labelOffset: 4,
                 ),
+                pointers: const [
+                  // Needle extending from center toward the current value.
+                  GaugePointer(
+                    value: 0.35,
+                    painter: GaugePointerNeedlePainter(
+                      length: 80,
+                      width: 10,
+                      tailLength: 24,
+                      color: AppColors.contentColorWhite,
+                    ),
+                  ),
+                  // Pivot cap sitting at the gauge center, on top of the
+                  // needle's base — just a second pointer with a small
+                  // circle painter (anchorRadius: 0).
+                  GaugePointer(
+                    value: 0.65,
+                    painter: GaugePointerCirclePainter(
+                      radius: 8,
+                      color: AppColors.contentColorBlack,
+                      strokeWidth: 2,
+                      strokeColor: AppColors.contentColorWhite,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -29,9 +29,11 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
     this.defaultRingWidth = 10.0,
     this.ringsSpace = 0.0,
     this.ticks,
+    List<GaugePointer> pointers = const [],
     GaugeTouchData? touchData,
     super.borderData,
   })  : rings = List.unmodifiable(rings),
+        pointers = List.unmodifiable(pointers),
         gaugeTouchData = touchData ?? GaugeTouchData(),
         assert(maxValue > minValue, 'maxValue must be greater than minValue'),
         assert(
@@ -78,6 +80,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
     double sweepAngle = 270.0,
     GaugeDirection direction = GaugeDirection.clockwise,
     GaugeTicks? ticks,
+    List<GaugePointer> pointers = const [],
     GaugeTouchData? touchData,
     FlBorderData? borderData,
   }) =>
@@ -98,6 +101,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
         sweepAngle: sweepAngle,
         direction: direction,
         ticks: ticks,
+        pointers: pointers,
         touchData: touchData,
         borderData: borderData,
       );
@@ -137,6 +141,12 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
   /// are not owned by any individual ring.
   final GaugeTicks? ticks;
 
+  /// Pointers drawn on top of the rings. Each [GaugePointer] carries
+  /// its own `value` on the same scale as the rings; the painter is
+  /// pre-transformed so `+x` points radially toward that value. Empty
+  /// by default.
+  final List<GaugePointer> pointers;
+
   /// Touch configuration and callback.
   final GaugeTouchData gaugeTouchData;
 
@@ -155,6 +165,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
         defaultRingWidth,
         ringsSpace,
         ticks,
+        pointers,
         gaugeTouchData,
         borderData,
       ];
@@ -169,6 +180,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
     double? defaultRingWidth,
     double? ringsSpace,
     GaugeTicks? ticks,
+    List<GaugePointer>? pointers,
     GaugeTouchData? touchData,
     FlBorderData? borderData,
   }) =>
@@ -182,6 +194,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
         defaultRingWidth: defaultRingWidth ?? this.defaultRingWidth,
         ringsSpace: ringsSpace ?? this.ringsSpace,
         ticks: ticks ?? this.ticks,
+        pointers: pointers ?? this.pointers,
         touchData: touchData ?? gaugeTouchData,
         borderData: borderData ?? this.borderData,
       );
@@ -201,6 +214,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
             lerpDouble(a.defaultRingWidth, b.defaultRingWidth, t)!,
         ringsSpace: lerpDouble(a.ringsSpace, b.ringsSpace, t)!,
         ticks: GaugeTicks.lerp(a.ticks, b.ticks, t),
+        pointers: lerpGaugePointerList(a.pointers, b.pointers, t)!,
         touchData: b.gaugeTouchData,
         borderData: FlBorderData.lerp(a.borderData, b.borderData, t),
       );
@@ -726,6 +740,245 @@ class GaugeTickCirclePainter extends GaugeTickPainter {
 
   @override
   List<Object?> get props => [radius, color, strokeWidth, strokeColor];
+}
+
+/// A single pointer drawn on top of the gauge, indicating a specific
+/// [value] on the scale shared by [GaugeChartData.rings].
+///
+/// Pointers are independent — each carries its own [value]. Sync with
+/// a ring's value by passing the same variable to both. To render a
+/// "pivot cap" under a needle, stack a small [GaugePointerCirclePainter]
+/// on top via a second [GaugePointer] in the same list.
+@immutable
+class GaugePointer with EquatableMixin {
+  const GaugePointer({
+    required this.value,
+    this.painter = const GaugePointerNeedlePainter(),
+  });
+
+  /// Position on the gauge scale the pointer points at. Values outside
+  /// `[GaugeChartData.minValue, maxValue]` are not asserted — the
+  /// pointer simply extends past the sweep endpoints.
+  final double value;
+
+  /// Renders the pointer's shape. The canvas is pre-transformed by
+  /// the gauge painter — see [GaugePointerPainter.draw].
+  final GaugePointerPainter painter;
+
+  GaugePointer copyWith({double? value, GaugePointerPainter? painter}) =>
+      GaugePointer(
+        value: value ?? this.value,
+        painter: painter ?? this.painter,
+      );
+
+  static GaugePointer lerp(GaugePointer a, GaugePointer b, double t) =>
+      GaugePointer(
+        value: lerpDouble(a.value, b.value, t)!,
+        painter: a.painter.lerp(a.painter, b.painter, t),
+      );
+
+  @override
+  List<Object?> get props => [value, painter];
+}
+
+/// Interface for rendering a single [GaugePointer].
+///
+/// The gauge painter pre-translates and pre-rotates the canvas so
+/// implementations never touch trigonometry:
+///
+/// - origin `(0, 0)` is the **gauge center**
+/// - `+x` axis points **radially outward** toward the pointer's value angle
+/// - `+y` axis is **tangent** to the arc in the sweep direction
+///
+/// Draw a horizontal, right-facing shape at the origin; the gauge
+/// rotates and translates the canvas for each pointer's value.
+///
+/// Mirrors the [GaugeTickPainter] pattern. Subclass to draw custom
+/// pointer shapes.
+abstract class GaugePointerPainter with EquatableMixin {
+  const GaugePointerPainter();
+
+  /// Draws the pointer in the pre-transformed local frame described
+  /// in the class docstring.
+  void draw(Canvas canvas);
+
+  /// Bounding box of the pointer in the unrotated local frame.
+  /// `width` is the radial extent (along `+x`), `height` is the
+  /// tangential extent (across `+y`).
+  Size getSize();
+
+  /// Lerps two painter configurations. Cross-type lerps fall back to
+  /// [b], matching [GaugeTickPainter.lerp].
+  GaugePointerPainter lerp(
+    GaugePointerPainter a,
+    GaugePointerPainter b,
+    double t,
+  );
+}
+
+/// Default [GaugePointerPainter]: a classic needle shape.
+///
+/// Draws a tapered triangle anchored at the gauge center, narrowing
+/// to a point at `(length, 0)`. An optional [tailLength] extends a
+/// short stub behind the pivot (toward `-x`).
+class GaugePointerNeedlePainter extends GaugePointerPainter {
+  const GaugePointerNeedlePainter({
+    this.length = 60.0,
+    this.width = 8.0,
+    this.tailLength = 0.0,
+    this.color = const Color(0xFF000000),
+  })  : assert(length > 0, 'length must be > 0'),
+        assert(width > 0, 'width must be > 0'),
+        assert(tailLength >= 0, 'tailLength must be >= 0');
+
+  /// Distance from the gauge center to the needle's tip, in pixels.
+  final double length;
+
+  /// Width of the needle's base (at the pivot), in pixels.
+  final double width;
+
+  /// Optional stub that extends behind the pivot toward `-x`, in
+  /// pixels. Set to `0` for a tip-only needle.
+  final double tailLength;
+
+  /// Fill color of the needle.
+  final Color color;
+
+  @override
+  void draw(Canvas canvas) {
+    final half = width / 2;
+    final path = Path()
+      ..moveTo(-tailLength, 0)
+      ..lineTo(0, -half)
+      ..lineTo(length, 0)
+      ..lineTo(0, half)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..isAntiAlias = true,
+    );
+  }
+
+  @override
+  Size getSize() => Size(length + tailLength, width);
+
+  GaugePointerNeedlePainter _lerp(
+    GaugePointerNeedlePainter a,
+    GaugePointerNeedlePainter b,
+    double t,
+  ) =>
+      GaugePointerNeedlePainter(
+        length: lerpDouble(a.length, b.length, t)!,
+        width: lerpDouble(a.width, b.width, t)!,
+        tailLength: lerpDouble(a.tailLength, b.tailLength, t)!,
+        color: Color.lerp(a.color, b.color, t)!,
+      );
+
+  @override
+  GaugePointerPainter lerp(
+    GaugePointerPainter a,
+    GaugePointerPainter b,
+    double t,
+  ) {
+    if (a is! GaugePointerNeedlePainter || b is! GaugePointerNeedlePainter) {
+      return b;
+    }
+    return _lerp(a, b, t);
+  }
+
+  @override
+  List<Object?> get props => [length, width, tailLength, color];
+}
+
+/// [GaugePointerPainter] that draws a filled circle at
+/// `(anchorRadius, 0)` in the pre-transformed frame. Useful for
+/// marker-style pointers or as a pivot cap (set `anchorRadius: 0`) on
+/// top of a needle.
+class GaugePointerCirclePainter extends GaugePointerPainter {
+  const GaugePointerCirclePainter({
+    this.radius = 6.0,
+    this.anchorRadius = 0.0,
+    this.color = const Color(0xFF000000),
+    this.strokeWidth = 0.0,
+    this.strokeColor = const Color(0xFF000000),
+  })  : assert(radius > 0, 'radius must be > 0'),
+        assert(anchorRadius >= 0, 'anchorRadius must be >= 0'),
+        assert(strokeWidth >= 0, 'strokeWidth must be >= 0');
+
+  /// Radius of the filled circle, in pixels.
+  final double radius;
+
+  /// Distance from the gauge center to the circle's center, along the
+  /// radial direction (`+x` in the pre-transformed frame).
+  final double anchorRadius;
+
+  /// Fill color of the circle.
+  final Color color;
+
+  /// Width of an optional stroked outline. Zero (default) = no outline.
+  final double strokeWidth;
+
+  /// Color of the optional stroked outline.
+  final Color strokeColor;
+
+  @override
+  void draw(Canvas canvas) {
+    final centerPoint = Offset(anchorRadius, 0);
+    if (strokeWidth > 0 && strokeColor.a != 0) {
+      canvas.drawCircle(
+        centerPoint,
+        radius + strokeWidth / 2,
+        Paint()
+          ..color = strokeColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth,
+      );
+    }
+    canvas.drawCircle(
+      centerPoint,
+      radius,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  Size getSize() {
+    final extent = radius + strokeWidth;
+    return Size(anchorRadius + extent, extent * 2);
+  }
+
+  GaugePointerCirclePainter _lerp(
+    GaugePointerCirclePainter a,
+    GaugePointerCirclePainter b,
+    double t,
+  ) =>
+      GaugePointerCirclePainter(
+        radius: lerpDouble(a.radius, b.radius, t)!,
+        anchorRadius: lerpDouble(a.anchorRadius, b.anchorRadius, t)!,
+        color: Color.lerp(a.color, b.color, t)!,
+        strokeWidth: lerpDouble(a.strokeWidth, b.strokeWidth, t)!,
+        strokeColor: Color.lerp(a.strokeColor, b.strokeColor, t)!,
+      );
+
+  @override
+  GaugePointerPainter lerp(
+    GaugePointerPainter a,
+    GaugePointerPainter b,
+    double t,
+  ) {
+    if (a is! GaugePointerCirclePainter || b is! GaugePointerCirclePainter) {
+      return b;
+    }
+    return _lerp(a, b, t);
+  }
+
+  @override
+  List<Object?> get props =>
+      [radius, anchorRadius, color, strokeWidth, strokeColor];
 }
 
 class GaugeTouchData extends FlTouchData<GaugeTouchResponse>

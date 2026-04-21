@@ -43,14 +43,38 @@ class GaugeChartSample1State extends State<GaugeChartSample1> {
                       ),
                       checkToShowTick: GaugeTicks.hideEndpoints,
                     ),
+                    pointers: [
+                      // Needle extending from center toward the current value.
+                      GaugePointer(
+                        value: _value,
+                        painter: GaugePointerNeedlePainter(
+                          length: 88,
+                          width: 20,
+                          tailLength: 40,
+                          color: AppColors.contentColorWhite,
+                        ),
+                      ),
+                      // Pivot cap sitting at the gauge center, on top of the
+                      // needle's base — just a second pointer with a small
+                      // circle painter (anchorRadius: 0).
+                      GaugePointer(
+                        value: 0.3,
+                        painter: GaugePointerCirclePainter(
+                          radius: 24,
+                          color: AppColors.contentColorBlack,
+                          strokeWidth: 2,
+                          strokeColor: AppColors.contentColorWhite,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Center(
                   child: Text(
-                    "${(_value * 100).toInt()}%",
+                    "${(_value * 100).toInt()}",
                     style: TextStyle(
                       color: AppColors.contentColorWhite,
-                      fontSize: 32,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

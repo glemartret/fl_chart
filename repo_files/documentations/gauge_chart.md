@@ -117,6 +117,7 @@ GaugeChart(
 |defaultRingWidth| width used for rings that don't specify their own `width`|10.0|
 |ringsSpace| radial pixel gap between adjacent rings|0.0|
 |ticks| optional tick configuration; see [GaugeTicks](#GaugeTicks)|null|
+|pointers| list of [GaugePointer](#GaugePointer)s drawn on top of the rings and ticks. Empty by default; each pointer carries its own `value` on the shared scale|`[]`|
 |touchData| [GaugeTouchData](#GaugeTouchData) holds the touch interactivity details|GaugeTouchData()|
 |borderData| shows a border around the chart, see [FlBorderData](base_chart.md#FlBorderData)|FlBorderData()|
 
@@ -198,6 +199,44 @@ Draw a horizontal, right-facing shape at the origin; the gauge handles placing a
 Built-in implementations:
 - **GaugeTickLinePainter** — draws a line from the origin to `(length, 0)`; the canonical tick shape. Properties: `length` (default 6), `thickness` (default 2), `color` (default black). This is the default.
 - **GaugeTickCirclePainter** — rotation-invariant filled circle, optionally with a stroked outline. Properties: `radius` (default 3), `color` (default black), `strokeWidth` (default 0), `strokeColor` (default black).
+
+### GaugePointer
+A single pointer rendered on top of the rings and ticks, indicating a value on the gauge's scale. Each pointer carries its own `value` — independent from any ring — so you can stack multiple pointers (clock hands, dual readings, a needle plus a pivot cap) by adding more entries to `GaugeChartData.pointers`.
+
+|PropName|Description|default value|
+|:-------|:----------|:------------|
+|value| position on the gauge scale the pointer points at. Values outside `[minValue, maxValue]` simply extend past the sweep endpoints|required|
+|painter| [GaugePointerPainter](#GaugePointerPainter) that renders the pointer's shape|GaugePointerNeedlePainter()|
+
+### GaugePointerPainter
+Interface for rendering a single [GaugePointer](#GaugePointer). Subclass it to draw custom pointer shapes. Mirrors the [GaugeTickPainter](#GaugeTickPainter) pattern.
+
+**Pre-transformed canvas** — the gauge painter translates and rotates the canvas around the gauge's center before calling `draw`, so implementations never touch trigonometry:
+
+- origin `(0, 0)` is the **gauge center**
+- `+x` axis points **radially outward** toward the pointer's value angle
+- `+y` axis is **tangent** to the arc in the sweep direction
+
+Draw a horizontal, right-facing shape at the origin; the gauge rotates and translates the canvas for every pointer's value. `getSize()` reports the bounding box in this unrotated local frame — `width` is the radial extent, `height` is the tangential extent.
+
+Built-in implementations:
+- **GaugePointerNeedlePainter** — classic triangular needle anchored at the gauge center, tapering to a point at `(length, 0)`. Properties: `length` (default 60), `width` (default 8), `tailLength` (default 0 — optional stub behind the pivot), `color` (default black). This is the default.
+- **GaugePointerCirclePainter** — filled circle at `(anchorRadius, 0)`. Useful for marker-style pointers or as a pivot cap (`anchorRadius: 0`). Properties: `radius` (default 6), `anchorRadius` (default 0), `color` (default black), `strokeWidth` (default 0), `strokeColor` (default black).
+
+A classic speedometer needle with a pivot cap is just two pointers with the same value:
+
+```dart
+pointers: const [
+  GaugePointer(
+    value: 0.65,
+    painter: GaugePointerNeedlePainter(length: 70, width: 8, tailLength: 14),
+  ),
+  GaugePointer(
+    value: 0.65,
+    painter: GaugePointerCirclePainter(radius: 8, color: Colors.black),
+  ),
+],
+```
 
 ### GaugeTouchData ([read about touch handling](handle_touches.md))
 |PropName|Description|default value|
