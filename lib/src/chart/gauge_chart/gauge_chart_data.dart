@@ -219,7 +219,7 @@ class GaugeChartData extends BaseChartData with EquatableMixin {
         borderData: FlBorderData.lerp(a.borderData, b.borderData, t),
       );
     } else {
-      throw Exception('Illegal State');
+      throw StateError('Illegal State');
     }
   }
 }
