@@ -544,11 +544,11 @@ void main() {
       expect(a.getSize(), const Size(40, 6));
 
       // Cross-type lerp snaps to b.
-      final fallback = a.lerp(a, const GaugePointerCirclePainter(), 0.2);
+      final fallback = a.lerp(const GaugePointerCirclePainter(), 0.2);
       expect(fallback, isA<GaugePointerCirclePainter>());
 
       // Same-type lerp blends.
-      final mid = a.lerp(a, c, 0.5) as GaugePointerNeedlePainter;
+      final mid = a.lerp(c, 0.5) as GaugePointerNeedlePainter;
       expect(mid.length, 60);
 
       // Draw emits a single filled triangle path.
@@ -612,12 +612,12 @@ void main() {
       expect(withStroke.getSize(), const Size(7, 14));
 
       // Same-type lerp blends fields.
-      final mid = a.lerp(a, c, 0.5) as GaugePointerCirclePainter;
+      final mid = a.lerp(c, 0.5) as GaugePointerCirclePainter;
       expect(mid.radius, 7);
       expect(mid.anchorRadius, 100);
 
       // Cross-type lerp snaps to b.
-      final fallback = a.lerp(a, const GaugePointerNeedlePainter(), 0.3);
+      final fallback = a.lerp(const GaugePointerNeedlePainter(), 0.3);
       expect(fallback, isA<GaugePointerNeedlePainter>());
     });
 

@@ -760,7 +760,7 @@ class GaugePointer with EquatableMixin {
   static GaugePointer lerp(GaugePointer a, GaugePointer b, double t) =>
       GaugePointer(
         value: lerpDouble(a.value, b.value, t)!,
-        painter: a.painter.lerp(a.painter, b.painter, t),
+        painter: a.painter.lerp(b.painter, t),
       );
 
   @override
@@ -795,11 +795,7 @@ abstract class GaugePointerPainter with EquatableMixin {
 
   /// Lerps two painter configurations. Cross-type lerps fall back to
   /// [b], matching [GaugeTickPainter.lerp].
-  GaugePointerPainter lerp(
-    GaugePointerPainter a,
-    GaugePointerPainter b,
-    double t,
-  );
+  GaugePointerPainter lerp(GaugePointerPainter b, double t);
 }
 
 /// Default [GaugePointerPainter]: a classic needle shape.
@@ -850,28 +846,17 @@ class GaugePointerNeedlePainter extends GaugePointerPainter {
   @override
   Size getSize() => Size(length + tailLength, width);
 
-  GaugePointerNeedlePainter _lerp(
-    GaugePointerNeedlePainter a,
-    GaugePointerNeedlePainter b,
-    double t,
-  ) =>
-      GaugePointerNeedlePainter(
-        length: lerpDouble(a.length, b.length, t)!,
-        width: lerpDouble(a.width, b.width, t)!,
-        tailLength: lerpDouble(a.tailLength, b.tailLength, t)!,
-        color: Color.lerp(a.color, b.color, t)!,
-      );
-
   @override
-  GaugePointerPainter lerp(
-    GaugePointerPainter a,
-    GaugePointerPainter b,
-    double t,
-  ) {
-    if (a is! GaugePointerNeedlePainter || b is! GaugePointerNeedlePainter) {
+  GaugePointerPainter lerp(GaugePointerPainter b, double t) {
+    if (b is! GaugePointerNeedlePainter) {
       return b;
     }
-    return _lerp(a, b, t);
+    return GaugePointerNeedlePainter(
+      length: lerpDouble(length, b.length, t)!,
+      width: lerpDouble(width, b.width, t)!,
+      tailLength: lerpDouble(tailLength, b.tailLength, t)!,
+      color: Color.lerp(color, b.color, t)!,
+    );
   }
 
   @override
@@ -937,29 +922,18 @@ class GaugePointerCirclePainter extends GaugePointerPainter {
     return Size(anchorRadius + extent, extent * 2);
   }
 
-  GaugePointerCirclePainter _lerp(
-    GaugePointerCirclePainter a,
-    GaugePointerCirclePainter b,
-    double t,
-  ) =>
-      GaugePointerCirclePainter(
-        radius: lerpDouble(a.radius, b.radius, t)!,
-        anchorRadius: lerpDouble(a.anchorRadius, b.anchorRadius, t)!,
-        color: Color.lerp(a.color, b.color, t)!,
-        strokeWidth: lerpDouble(a.strokeWidth, b.strokeWidth, t)!,
-        strokeColor: Color.lerp(a.strokeColor, b.strokeColor, t)!,
-      );
-
   @override
-  GaugePointerPainter lerp(
-    GaugePointerPainter a,
-    GaugePointerPainter b,
-    double t,
-  ) {
-    if (a is! GaugePointerCirclePainter || b is! GaugePointerCirclePainter) {
+  GaugePointerPainter lerp(GaugePointerPainter b, double t) {
+    if (b is! GaugePointerCirclePainter) {
       return b;
     }
-    return _lerp(a, b, t);
+    return GaugePointerCirclePainter(
+      radius: lerpDouble(radius, b.radius, t)!,
+      anchorRadius: lerpDouble(anchorRadius, b.anchorRadius, t)!,
+      color: Color.lerp(color, b.color, t)!,
+      strokeWidth: lerpDouble(strokeWidth, b.strokeWidth, t)!,
+      strokeColor: Color.lerp(strokeColor, b.strokeColor, t)!,
+    );
   }
 
   @override
