@@ -745,7 +745,7 @@ void main() {
 
       expect(
         () => gauge.lerp(_DummyData(), _DummyData(), 0.3),
-        throwsA(isA<Exception>()),
+        throwsA(isA<StateError>()),
       );
     });
 
