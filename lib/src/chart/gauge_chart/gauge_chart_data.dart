@@ -495,7 +495,7 @@ class GaugeTicks with EquatableMixin {
   final GaugeTickPainter painter;
 
   /// Predicate deciding whether each tick is drawn. Receives a
-  /// [CheckToShowGaugeTickInfo] with the tick's index, the total [count], its
+  /// [GaugeTickInfo] with the tick's index, the total [count], its
   /// scale value, and the chart's `minValue` / `maxValue`. Returning
   /// `false` skips both the tick mark and its label.
   ///
@@ -510,11 +510,11 @@ class GaugeTicks with EquatableMixin {
   final CheckToShowGaugeTick checkToShowTick;
 
   /// Default [CheckToShowGaugeTick] — draws every tick.
-  static bool showAll(CheckToShowGaugeTickInfo info) => true;
+  static bool showAll(GaugeTickInfo info) => true;
 
   /// [CheckToShowGaugeTick] that skips the first and last ticks. Equivalent
   /// to `info.index != 0 && info.index != info.count - 1`.
-  static bool hideEndpoints(CheckToShowGaugeTickInfo info) =>
+  static bool hideEndpoints(GaugeTickInfo info) =>
       info.index != 0 && info.index != info.count - 1;
 
   /// Returns the text painted as a label next to each tick. The input
@@ -533,6 +533,20 @@ class GaugeTicks with EquatableMixin {
   /// tick.
   final double labelOffset;
 
+  static GaugeTicks? lerp(GaugeTicks? a, GaugeTicks? b, double t) {
+    if (a == null || b == null) return b;
+    return GaugeTicks(
+      count: lerpInt(a.count, b.count, t),
+      position: b.position,
+      offset: lerpDouble(a.offset, b.offset, t)!,
+      painter: a.painter.lerp(b.painter, t),
+      checkToShowTick: b.checkToShowTick,
+      labelBuilder: b.labelBuilder,
+      labelStyle: TextStyle.lerp(a.labelStyle, b.labelStyle, t),
+      labelOffset: lerpDouble(a.labelOffset, b.labelOffset, t)!,
+    );
+  }
+
   @override
   List<Object?> get props => [
         count,
@@ -544,30 +558,16 @@ class GaugeTicks with EquatableMixin {
         labelStyle,
         labelOffset,
       ];
-
-  static GaugeTicks? lerp(GaugeTicks? a, GaugeTicks? b, double t) {
-    if (a == null || b == null) return b;
-    return GaugeTicks(
-      count: lerpInt(a.count, b.count, t),
-      position: b.position,
-      offset: lerpDouble(a.offset, b.offset, t)!,
-      painter: a.painter.lerp(a.painter, b.painter, t),
-      checkToShowTick: b.checkToShowTick,
-      labelBuilder: b.labelBuilder,
-      labelStyle: TextStyle.lerp(a.labelStyle, b.labelStyle, t),
-      labelOffset: lerpDouble(a.labelOffset, b.labelOffset, t)!,
-    );
-  }
 }
 
 /// Signature for a predicate that decides whether a gauge tick is
 /// drawn. See [GaugeTicks.CheckToShowGaugeTick].
-typedef CheckToShowGaugeTick = bool Function(CheckToShowGaugeTickInfo info);
+typedef CheckToShowGaugeTick = bool Function(GaugeTickInfo info);
 
 /// Context passed to [CheckToShowGaugeTick] callbacks.
 @immutable
-class CheckToShowGaugeTickInfo with EquatableMixin {
-  const CheckToShowGaugeTickInfo({
+class GaugeTickInfo with EquatableMixin {
+  const GaugeTickInfo({
     required this.index,
     required this.count,
     required this.value,
@@ -612,7 +612,7 @@ abstract class GaugeTickPainter with EquatableMixin {
 
   /// Draws a single tick in the pre-transformed local frame described
   /// in the class docstring.
-  void draw(Canvas canvas);
+  void draw(Canvas canvas, GaugeTickInfo tickInfo);
 
   /// Bounding box of the tick in the unrotated local frame.
   ///
@@ -622,7 +622,7 @@ abstract class GaugeTickPainter with EquatableMixin {
 
   /// Lerps two painter configurations. Cross-type lerps fall back to
   /// [b], matching [FlDotPainter.lerp].
-  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t);
+  GaugeTickPainter lerp(GaugeTickPainter b, double t);
 }
 
 /// Default [GaugeTickPainter]: draws a line segment along `+x`, so
@@ -640,7 +640,7 @@ class GaugeTickLinePainter extends GaugeTickPainter {
   final Color color;
 
   @override
-  void draw(Canvas canvas) {
+  void draw(Canvas canvas, GaugeTickInfo tickInfo) {
     canvas.drawLine(
       Offset.zero,
       Offset(length, 0),
@@ -655,23 +655,16 @@ class GaugeTickLinePainter extends GaugeTickPainter {
   @override
   Size getSize() => Size(length, thickness);
 
-  GaugeTickLinePainter _lerp(
-    GaugeTickLinePainter a,
-    GaugeTickLinePainter b,
-    double t,
-  ) =>
-      GaugeTickLinePainter(
-        length: lerpDouble(a.length, b.length, t)!,
-        thickness: lerpDouble(a.thickness, b.thickness, t)!,
-        color: Color.lerp(a.color, b.color, t)!,
-      );
-
   @override
-  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t) {
-    if (a is! GaugeTickLinePainter || b is! GaugeTickLinePainter) {
+  GaugeTickPainter lerp(GaugeTickPainter b, double t) {
+    if (b is! GaugeTickLinePainter) {
       return b;
     }
-    return _lerp(a, b, t);
+    return GaugeTickLinePainter(
+      length: lerpDouble(length, b.length, t)!,
+      thickness: lerpDouble(thickness, b.thickness, t)!,
+      color: Color.lerp(color, b.color, t)!,
+    );
   }
 
   @override
@@ -695,7 +688,7 @@ class GaugeTickCirclePainter extends GaugeTickPainter {
   final Color strokeColor;
 
   @override
-  void draw(Canvas canvas) {
+  void draw(Canvas canvas, GaugeTickInfo tickInfo) {
     if (strokeWidth > 0 && strokeColor.a != 0) {
       canvas.drawCircle(
         Offset.zero,
@@ -718,24 +711,17 @@ class GaugeTickCirclePainter extends GaugeTickPainter {
   @override
   Size getSize() => Size.fromRadius(radius + strokeWidth);
 
-  GaugeTickCirclePainter _lerp(
-    GaugeTickCirclePainter a,
-    GaugeTickCirclePainter b,
-    double t,
-  ) =>
-      GaugeTickCirclePainter(
-        radius: lerpDouble(a.radius, b.radius, t)!,
-        color: Color.lerp(a.color, b.color, t)!,
-        strokeWidth: lerpDouble(a.strokeWidth, b.strokeWidth, t)!,
-        strokeColor: Color.lerp(a.strokeColor, b.strokeColor, t)!,
-      );
-
   @override
-  GaugeTickPainter lerp(GaugeTickPainter a, GaugeTickPainter b, double t) {
-    if (a is! GaugeTickCirclePainter || b is! GaugeTickCirclePainter) {
+  GaugeTickPainter lerp(GaugeTickPainter b, double t) {
+    if (b is! GaugeTickCirclePainter) {
       return b;
     }
-    return _lerp(a, b, t);
+    return GaugeTickCirclePainter(
+      radius: lerpDouble(radius, b.radius, t)!,
+      color: Color.lerp(color, b.color, t)!,
+      strokeWidth: lerpDouble(strokeWidth, b.strokeWidth, t)!,
+      strokeColor: Color.lerp(strokeColor, b.strokeColor, t)!,
+    );
   }
 
   @override

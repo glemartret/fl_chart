@@ -401,21 +401,21 @@ void main() {
     });
 
     test('GaugeTicks.hideEndpoints and showAll predicates', () {
-      const info0 = CheckToShowGaugeTickInfo(
+      const info0 = GaugeTickInfo(
         index: 0,
         count: 5,
         value: 0,
         minValue: 0,
         maxValue: 100,
       );
-      const infoMid = CheckToShowGaugeTickInfo(
+      const infoMid = GaugeTickInfo(
         index: 2,
         count: 5,
         value: 50,
         minValue: 0,
         maxValue: 100,
       );
-      const infoLast = CheckToShowGaugeTickInfo(
+      const infoLast = GaugeTickInfo(
         index: 4,
         count: 5,
         value: 100,
@@ -441,16 +441,25 @@ void main() {
       expect(a.getSize(), const Size(6, 2));
 
       // Cross-type lerp snaps to b.
-      final fallback = a.lerp(a, const GaugeTickCirclePainter(), 0.3);
+      final fallback = a.lerp(const GaugeTickCirclePainter(), 0.3);
       expect(fallback, isA<GaugeTickCirclePainter>());
 
       // Same-type lerp blends lengths.
-      final mid = a.lerp(a, c, 0.5) as GaugeTickLinePainter;
+      final mid = a.lerp(c, 0.5) as GaugeTickLinePainter;
       expect(mid.length, 8);
 
       // draw calls canvas.drawLine(zero, (length, 0), paint).
       final canvas = _RecordingCanvas();
-      a.draw(canvas);
+      a.draw(
+        canvas,
+        const GaugeTickInfo(
+          index: 0,
+          count: 1,
+          value: 1,
+          minValue: 1,
+          maxValue: 2,
+        ),
+      );
       expect(canvas.lines.length, 1);
       expect(canvas.lines.first.p1, Offset.zero);
       expect(canvas.lines.first.p2, const Offset(6, 0));
@@ -472,14 +481,32 @@ void main() {
         strokeColor: Colors.blue,
       );
       final canvas = _RecordingCanvas();
-      withStroke.draw(canvas);
+      withStroke.draw(
+        canvas,
+        const GaugeTickInfo(
+          index: 0,
+          count: 1,
+          value: 1,
+          minValue: 1,
+          maxValue: 2,
+        ),
+      );
       expect(canvas.circles.length, 2);
       expect(canvas.circles[0].paint.style, PaintingStyle.stroke);
       expect(canvas.circles[1].paint.style, PaintingStyle.fill);
 
       // strokeWidth == 0 draws only fill.
       final canvas2 = _RecordingCanvas();
-      const GaugeTickCirclePainter(radius: 4, color: Colors.red).draw(canvas2);
+      const GaugeTickCirclePainter(radius: 4, color: Colors.red).draw(
+        canvas2,
+        const GaugeTickInfo(
+          index: 0,
+          count: 1,
+          value: 1,
+          minValue: 1,
+          maxValue: 2,
+        ),
+      );
       expect(canvas2.circles.length, 1);
       expect(canvas2.circles.first.paint.style, PaintingStyle.fill);
     });
@@ -597,11 +624,11 @@ void main() {
     test('GaugeTickCirclePainter lerp (same-type + cross-type)', () {
       const a = GaugeTickCirclePainter();
       const c = GaugeTickCirclePainter(radius: 9);
-      final mid = a.lerp(a, c, 0.5) as GaugeTickCirclePainter;
+      final mid = a.lerp(c, 0.5) as GaugeTickCirclePainter;
       expect(mid.radius, 6);
 
       // Cross-type lerp to a line painter snaps to b.
-      final fallback = a.lerp(a, const GaugeTickLinePainter(), 0.5);
+      final fallback = a.lerp(const GaugeTickLinePainter(), 0.5);
       expect(fallback, isA<GaugeTickLinePainter>());
 
       // Non-const construction exercises the assertion branch.
@@ -609,21 +636,21 @@ void main() {
     });
 
     test('CheckToShowGaugeTickInfo equality and props', () {
-      const a = CheckToShowGaugeTickInfo(
+      const a = GaugeTickInfo(
         index: 1,
         count: 5,
         value: 25,
         minValue: 0,
         maxValue: 100,
       );
-      const b = CheckToShowGaugeTickInfo(
+      const b = GaugeTickInfo(
         index: 1,
         count: 5,
         value: 25,
         minValue: 0,
         maxValue: 100,
       );
-      const c = CheckToShowGaugeTickInfo(
+      const c = GaugeTickInfo(
         index: 2,
         count: 5,
         value: 50,
@@ -751,6 +778,7 @@ class _DummyData extends BaseChartData {
 
 class _RecordedCircle {
   const _RecordedCircle(this.center, this.radius, this.paint);
+
   final Offset center;
   final double radius;
   final Paint paint;
@@ -758,6 +786,7 @@ class _RecordedCircle {
 
 class _RecordedLine {
   const _RecordedLine(this.p1, this.p2, this.paint);
+
   final Offset p1;
   final Offset p2;
   final Paint paint;
@@ -765,6 +794,7 @@ class _RecordedLine {
 
 class _RecordedPath {
   const _RecordedPath(this.path, this.paint);
+
   final Path path;
   final Paint paint;
 }

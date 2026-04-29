@@ -415,15 +415,14 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
     for (var i = 0; i < ticks.count; i++) {
       final progress = i / lastIndex;
       final value = data.minValue + progress * range;
-      final shouldShow = ticks.checkToShowTick(
-        CheckToShowGaugeTickInfo(
-          index: i,
-          count: ticks.count,
-          value: value,
-          minValue: data.minValue,
-          maxValue: data.maxValue,
-        ),
+      final tickInfo = GaugeTickInfo(
+        index: i,
+        count: ticks.count,
+        value: value,
+        minValue: data.minValue,
+        maxValue: data.maxValue,
       );
+      final shouldShow = ticks.checkToShowTick(tickInfo);
       if (!shouldShow) continue;
       final angleRad =
           Utils().radians(data.startDegreeOffset + interTickDegrees * i);
@@ -436,7 +435,7 @@ class GaugeChartPainter extends BaseChartPainter<GaugeChartData> {
         ..save()
         ..translate(anchor.dx, anchor.dy)
         ..rotate(angleRad + rotationOffset);
-      ticks.painter.draw(canvasWrapper.canvas);
+      ticks.painter.draw(canvasWrapper.canvas, tickInfo);
       canvasWrapper.restore();
 
       if (labelStyle != null) {

@@ -1008,7 +1008,7 @@ void main() {
         'CheckToShowGaugeTick receives index, count, value, min/max and can '
         'hide arbitrary ticks', () {
       const viewSize = Size(400, 400);
-      final captured = <CheckToShowGaugeTickInfo>[];
+      final captured = <GaugeTickInfo>[];
       final data = GaugeChartData(
         maxValue: 100,
         rings: const [
